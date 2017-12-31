@@ -22,7 +22,7 @@ var host string
 
 func init() {
 
-	config := config.NewConfig()
+	config := config.New()
 
 	discard = config.Discard
 	host = "http://" + config.Host + "/checkv2"

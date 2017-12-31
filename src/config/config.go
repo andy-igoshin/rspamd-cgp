@@ -11,7 +11,7 @@ type Config struct {
 	Timeout time.Duration
 }
 
-func NewConfig() *Config {
+func New() *Config {
 
 	config := new(Config)
 
