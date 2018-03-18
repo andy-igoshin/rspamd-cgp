@@ -8,9 +8,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
-const (
+var (
 	headerJunkG string = "X-Junk-Score: [XX]"
 	headerJunkA string = "X-Junk-Score: [XXXX]"
 	headerJunkR string = "X-Junk-Score: [XXXXXXXXXX]"
@@ -34,6 +35,15 @@ func init() {
 	client = &http.Client{
 		Timeout:   config.Timeout,
 		Transport: tr,
+	}
+}
+
+func appendHeaders(hdrs, junk *string) *string {
+	if *hdrs != "" {
+		headers := *hdrs + "\n" + *junk
+		return &headers
+	} else {
+		return junk
 	}
 }
 
@@ -88,24 +98,45 @@ func Scan(seq int, filename string) {
 	cgp.Putline("* %d [%d]: Action: %s; Score: %.2f/%.2f; Time elapsed: %.3fs\n",
 		seq, qid, action, js["score"], js["required_score"], js["time_real"])
 
+	var headers string
+
+	if milter, ok := js["milter"]; ok {
+		if hdrs, ok := milter.(map[string]interface{})["add_headers"]; ok {
+			if ar, ok := hdrs.(map[string]interface{})["Authentication-Results"]; ok {
+				if v, ok := ar.(map[string]interface{})["value"].(string); ok && v != "" {
+					hdr := "Authentication-Results: " + strings.Replace(v, "; ", ";\n\t", -1)
+					if headers != "" {
+						headers = "\n" + hdr
+					} else {
+						headers = hdr
+					}
+				}
+			}
+		}
+	}
+
 	switch action {
 	case "no action":
-		cgp.Putline("%d OK\n", seq)
+		if headers != "" {
+			cgp.Putline("%d ADDHEADER \"%s\" OK\n", seq, *cgp.ReplaceSpecChars(&headers))
+		} else {
+			cgp.Putline("%d OK\n", seq)
+		}
 
 	case "reject":
 		if discard {
 			cgp.Putline("%d DISCARD\n", seq)
 		} else {
-			cgp.Putline("%d ADDHEADER \"%s\" OK\n", seq, headerJunkR)
+			cgp.Putline("%d ADDHEADER \"%s\" OK\n", seq, *cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkR)))
 		}
 
 	case "rewrite subject":
 		fallthrough
 	case "add header":
-		cgp.Putline("%d ADDHEADER \"%s\" OK\n", seq, headerJunkA)
+		cgp.Putline("%d ADDHEADER \"%s\" OK\n", seq, *cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkA)))
 
 	case "greylist":
-		cgp.Putline("%d ADDHEADER \"%s\" OK\n", seq, headerJunkG)
+		cgp.Putline("%d ADDHEADER \"%s\" OK\n", seq, *cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkG)))
 
 	case "soft reject":
 		cgp.Putline("%d REJECT Try again later\n", seq)
