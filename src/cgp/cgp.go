@@ -80,6 +80,41 @@ func Putline(format string, a ...interface{}) {
 	syscall.Write(int(os.Stdout.Fd()), []byte(s))
 }
 
+func ReplaceSpecChars(msgo *string) *string {
+
+	var msgn string
+
+	for _, symbol := range *msgo {
+
+		switch symbol {
+		case rune('\\'):
+			// replace \ -> \\ (CGP backslash)
+			msgn += "\\\\"
+
+		case 0x0000:
+			fallthrough
+		case rune('\r'):
+			fallthrough
+		case rune('\n'):
+			// replace \r or \n or \0 -> \\e (CGP End-of-Line)
+			msgn += "\\e"
+
+		case rune('\t'):
+			// replace \t -> \\t (CGP Tab)
+			msgn += "\\t"
+
+		case rune('"'):
+			// replace \" -> \\" (CGP quote)
+			msgn += "\\\""
+
+		default:
+			msgn += string(symbol)
+		}
+	}
+
+	return &msgn
+}
+
 func uniqueNonEmptyElementsOf(s []string) []string {
 
 	unique := make(map[string]bool, len(s))
