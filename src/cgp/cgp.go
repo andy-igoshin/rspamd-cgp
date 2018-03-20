@@ -94,7 +94,7 @@ func ReplaceSpecChars(msgo *string) *string {
 		case 0x0000:
 			fallthrough
 		case rune('\r'):
-			;
+			continue
 
 		case rune('\n'):
 			// replace \n -> \\e (CGP End-of-Line)
