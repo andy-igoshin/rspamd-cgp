@@ -88,15 +88,16 @@ func ReplaceSpecChars(msgo *string) *string {
 
 		switch symbol {
 		case rune('\\'):
-			// replace \ -> \\ (CGP backslash)
+			// replace \ -> \\   (CGP backslash)
 			msgn += "\\\\"
 
 		case 0x0000:
 			fallthrough
 		case rune('\r'):
-			fallthrough
+			;
+
 		case rune('\n'):
-			// replace \r or \n or \0 -> \\e (CGP End-of-Line)
+			// replace \n -> \\e (CGP End-of-Line)
 			msgn += "\\e"
 
 		case rune('\t'):
