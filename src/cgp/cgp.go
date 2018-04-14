@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-func Message(filename *string) (from string, rcpts []string, ip string, qid int, body []byte, err error) {
+func Message(filename *string) (from string, rcpts []string, auth string, ip string, qid int, body []byte, err error) {
 
 	qid, err = strconv.Atoi((*filename)[strings.LastIndexByte(*filename, '/')+1 : strings.LastIndexByte(*filename, '.')])
 	if err != nil {
@@ -46,7 +46,15 @@ finalize:
 			rcpts = append(rcpts, string(line[strings.IndexByte(string(line), '<'):strings.IndexByte(string(line), '>')+1]))
 
 		case 'S':
-			ip = string(line[strings.IndexByte(string(line), '[')+1 : strings.IndexByte(string(line), ']')])
+			s := strings.Split(string(line), " ")
+			if s[1] == "SMTP" || s[2] == "SMTP" {
+				if s[1] == "SMTP" {
+					ip = strings.Trim(s[2], "[]\n")
+				} else {
+					auth = strings.Trim(s[1], "<>")
+					ip = strings.Trim(s[3], "[]\n")
+				}
+			}
 		}
 	}
 
@@ -69,7 +77,7 @@ finalize:
 	}
 
 	if from == "" || len(rcpts) == 0 || n < len(body) {
-		err = fmt.Errorf("cgp.Message() error: from='%s', len(to)=%d, ip='%s', size=%d/%d", from, len(rcpts), ip, len(body), n)
+		err = fmt.Errorf("cgp.Message() error: from='%s', len(to)=%d, auth='%s' ip='%s', size=%d/%d", from, len(rcpts), auth, ip, len(body), n)
 	}
 
 	return

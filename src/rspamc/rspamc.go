@@ -49,7 +49,7 @@ func appendHeaders(hdrs, junk *string) *string {
 
 func Scan(seq int, filename string) {
 
-	from, rcpts, ip, qid, body, err := cgp.Message(&filename)
+	from, rcpts, auth, ip, qid, body, err := cgp.Message(&filename)
 	if err != nil {
 		cgp.Putline("* %d [%d]: %s\n", seq, qid, err)
 		cgp.Putline("%d FAILURE\n", seq)
@@ -66,6 +66,9 @@ func Scan(seq int, filename string) {
 	req.Header.Add("User-Agent", "rspamd-cgp")
 	req.Header.Add("From", from)
 	req.Header.Add("Queue-ID", strconv.Itoa(qid))
+	if len(auth) > 0 {
+		req.Header.Add("User", auth)
+	}
 	if len(ip) > 0 {
 		req.Header.Add("Ip", ip)
 	}
