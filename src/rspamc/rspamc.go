@@ -65,8 +65,10 @@ func Scan(seq int, filename string) {
 
 	req.Header.Add("User-Agent", "rspamd-cgp")
 	req.Header.Add("From", from)
-	req.Header.Add("Ip", ip)
 	req.Header.Add("Queue-ID", strconv.Itoa(qid))
+	if len(ip) > 0 {
+		req.Header.Add("Ip", ip)
+	}
 	for _, rcpt := range rcpts {
 		req.Header.Add("Rcpt", rcpt)
 	}
