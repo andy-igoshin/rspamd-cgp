@@ -40,10 +40,12 @@ finalize:
 
 		switch line[0] {
 		case 'P':
-			from = string(line[strings.IndexByte(string(line), '<') : strings.IndexByte(string(line), '>')+1])
+			s := strings.IndexByte(string(line), '<')
+			from = string(line[s : s+strings.IndexByte(string(line[s:]), '>')+1])
 
 		case 'R':
-			rcpts = append(rcpts, string(line[strings.IndexByte(string(line), '<'):strings.IndexByte(string(line), '>')+1]))
+			s := strings.IndexByte(string(line), '<')
+			rcpts = append(rcpts, string(line[s:s+strings.IndexByte(string(line[s:]), '>')+1]))
 
 		case 'S':
 			s := strings.Split(string(line), " ")
