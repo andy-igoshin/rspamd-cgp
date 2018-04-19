@@ -13,7 +13,7 @@ import (
 var reSMTP *regexp.Regexp
 
 func init() {
-	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTP|HTTPU) \[([0-9abcdef.:]+)\]`)
+	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTPU?) \[([0-9abcdef.:]+)\]`)
 }
 
 func Message(filename *string) (from string, rcpts []string, auth string, ip string, qid int, body []byte, err error) {
