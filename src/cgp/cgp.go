@@ -4,10 +4,17 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
 )
+
+var reSMTP *regexp.Regexp
+
+func init() {
+	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTP) \[([0-9abcdef.:]+)\]`)
+}
 
 func Message(filename *string) (from string, rcpts []string, auth string, ip string, qid int, body []byte, err error) {
 
@@ -27,6 +34,7 @@ func Message(filename *string) (from string, rcpts []string, auth string, ip str
 
 finalize:
 	for m := bufio.NewReader(h); ; {
+
 		line, err = m.ReadSlice('\n')
 		if err != nil {
 			return
@@ -48,14 +56,9 @@ finalize:
 			rcpts = append(rcpts, string(line[s:s+strings.IndexByte(string(line[s:]), '>')+1]))
 
 		case 'S':
-			s := strings.Split(string(line), " ")
-			if s[1] == "SMTP" || s[2] == "SMTP" {
-				if s[1] == "SMTP" {
-					ip = strings.Trim(s[2], "[]\n")
-				} else {
-					auth = strings.Trim(s[1], "<>")
-					ip = strings.Trim(s[3], "[]\n")
-				}
+			if s := reSMTP.FindAllStringSubmatch(string(line), -1); s != nil {
+				auth = s[0][1]
+				ip = s[0][2]
 			}
 		}
 	}
