@@ -70,7 +70,7 @@ func Scan(seq int, filename string) {
 		req.Header.Add("User", auth)
 	}
 	if len(ip) > 0 {
-		req.Header.Add("Ip", ip)
+		req.Header.Add("IP", ip)
 	}
 	for _, rcpt := range rcpts {
 		req.Header.Add("Rcpt", rcpt)
