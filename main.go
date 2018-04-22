@@ -45,7 +45,7 @@ finalize:
 			break finalize
 
 		default:
-			cgp.Putline("* bad command: %s", line)
+			cgp.Putline("* bad command: %s\n", line)
 		}
 	}
 
