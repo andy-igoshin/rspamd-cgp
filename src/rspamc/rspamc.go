@@ -105,6 +105,10 @@ func Scan(seq int, filename string) {
 
 	var headers string
 
+	if _, ok := js["dkim-signature"]; ok {
+		headers = "DKIM-Signature: " + js["dkim-signature"].(string)
+	}
+
 	if milter, ok := js["milter"]; ok {
 		if hdrs, ok := milter.(map[string]interface{})["add_headers"]; ok {
 			if ar, ok := hdrs.(map[string]interface{})["Authentication-Results"]; ok {
