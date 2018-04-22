@@ -25,6 +25,10 @@ func AddHeader(seq int, headers *string) {
 	}
 }
 
+func Discard(seq int) {
+	Putline("%d DISCARD\n", seq)
+}
+
 func Failure(seq, qid int, err error) {
 	Putline("* %d [%d]: %s\n", seq, qid, err)
 	Putline("%d FAILURE\n", seq)

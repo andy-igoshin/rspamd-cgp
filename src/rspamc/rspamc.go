@@ -130,7 +130,7 @@ func Scan(seq int, filename string) {
 
 	case "reject":
 		if discard {
-			cgp.Putline("%d DISCARD\n", seq)
+			cgp.Discard(seq)
 		} else {
 			cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkR)))
 		}
