@@ -25,6 +25,11 @@ func AddHeader(seq int, headers *string) {
 	}
 }
 
+func Failure(seq, qid int, err error) {
+	Putline("* %d [%d]: %s\n", seq, qid, err)
+	Putline("%d FAILURE\n", seq)
+}
+
 func Message(filename *string) (from string, rcpts []string, auth string, ip string, qid int, body []byte, err error) {
 
 	qid, err = strconv.Atoi((*filename)[strings.LastIndexByte(*filename, '/')+1 : strings.LastIndexByte(*filename, '.')])

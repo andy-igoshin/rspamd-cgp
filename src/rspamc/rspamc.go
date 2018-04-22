@@ -5,6 +5,7 @@ import (
 	"cgp"
 	"config"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -51,15 +52,13 @@ func Scan(seq int, filename string) {
 
 	from, rcpts, auth, ip, qid, body, err := cgp.Message(&filename)
 	if err != nil {
-		cgp.Putline("* %d [%d]: %s\n", seq, qid, err)
-		cgp.Putline("%d FAILURE\n", seq)
+		cgp.Failure(seq, qid, err)
 		return
 	}
 
 	req, err := http.NewRequest("POST", host, bytes.NewReader(body))
 	if err != nil {
-		cgp.Putline("* %d [%d]: %s\n", seq, qid, err)
-		cgp.Putline("%d FAILURE\n", seq)
+		cgp.Failure(seq, qid, err)
 		return
 	}
 
@@ -78,23 +77,20 @@ func Scan(seq int, filename string) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		cgp.Putline("* %d [%d]: %s\n", seq, qid, err)
-		cgp.Putline("%d FAILURE\n", seq)
+		cgp.Failure(seq, qid, err)
 		return
 	}
 	defer resp.Body.Close()
 
 	rbody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		cgp.Putline("* %d [%d]: %s\n", seq, qid, err)
-		cgp.Putline("%d FAILURE\n", seq)
+		cgp.Failure(seq, qid, err)
 		return
 	}
 
 	var js map[string]interface{}
 	if err := json.Unmarshal(rbody, &js); err != nil {
-		cgp.Putline("* %d [%d]: %s\n", seq, qid, err)
-		cgp.Putline("%d FAILURE\n", seq)
+		cgp.Failure(seq, qid, err)
 		return
 	}
 
@@ -151,8 +147,7 @@ func Scan(seq int, filename string) {
 		cgp.Putline("%d REJECT Try again later\n", seq)
 
 	default:
-		cgp.Putline("* %d [%d]: Unknown action: %v\n", seq, qid, action)
-		cgp.Putline("%d FAILURE\n", seq)
+		cgp.Failure(seq, qid, fmt.Errorf("Unknown action: %v", action))
 	}
 
 }
