@@ -94,11 +94,6 @@ func Scan(seq int, filename string) {
 		return
 	}
 
-	action := js["action"]
-
-	cgp.Putline("* %d [%d]: Action: %s; Score: %.2f/%.2f; Time elapsed: %.3fs\n",
-		seq, qid, action, js["score"], js["required_score"], js["time_real"])
-
 	var headers string
 
 	if _, ok := js["dkim-signature"]; ok {
@@ -119,6 +114,11 @@ func Scan(seq int, filename string) {
 			}
 		}
 	}
+
+	action := js["action"]
+
+	cgp.Putline("* %d [%d]: Action: %s; Score: %.2f/%.2f; Time elapsed: %.3fs\n",
+		seq, qid, action, js["score"], js["required_score"], js["time_real"])
 
 	switch action {
 	case "no action":
