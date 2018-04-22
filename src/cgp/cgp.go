@@ -102,6 +102,10 @@ finalize:
 	return
 }
 
+func Ok(seq int) {
+	Putline("%d OK\n", seq)
+}
+
 func Protocol(ver string) int {
 	protocol, _ = strconv.Atoi(ver)
 	return protocol

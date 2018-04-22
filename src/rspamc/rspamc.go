@@ -125,7 +125,7 @@ func Scan(seq int, filename string) {
 		if headers != "" {
 			cgp.AddHeader(seq, cgp.ReplaceSpecChars(&headers))
 		} else {
-			cgp.Putline("%d OK\n", seq)
+			cgp.Ok(seq)
 		}
 
 	case "reject":
