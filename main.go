@@ -38,7 +38,7 @@ finalize:
 			go rspamc.Scan(seq, arg)
 
 		case cmd == "INTF" && n == 3:
-			cgp.Putline("%d INTF %d\n", seq, cgp.Protocol(arg))
+			cgp.Intf(seq, arg)
 
 		case cmd == "QUIT" && n == 2:
 			cgp.Ok(seq)

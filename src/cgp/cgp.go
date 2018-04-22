@@ -34,6 +34,11 @@ func Failure(seq, qid int, err error) {
 	Putline("%d FAILURE\n", seq)
 }
 
+func Intf(seq int, ver string) {
+	protocol, _ = strconv.Atoi(ver)
+	Putline("%d INTF %d\n", seq, protocol)
+}
+
 func Message(filename *string) (from string, rcpts []string, auth string, ip string, qid int, body []byte, err error) {
 
 	qid, err = strconv.Atoi((*filename)[strings.LastIndexByte(*filename, '/')+1 : strings.LastIndexByte(*filename, '.')])
@@ -108,11 +113,6 @@ finalize:
 
 func Ok(seq int) {
 	Putline("%d OK\n", seq)
-}
-
-func Protocol(ver string) int {
-	protocol, _ = strconv.Atoi(ver)
-	return protocol
 }
 
 func Putline(format string, a ...interface{}) {
