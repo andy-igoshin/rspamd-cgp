@@ -144,7 +144,7 @@ func Scan(seq int, filename string) {
 		cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkG)))
 
 	case "soft reject":
-		cgp.Putline("%d REJECT Try again later\n", seq)
+		cgp.Reject(seq)
 
 	default:
 		cgp.Failure(seq, qid, fmt.Errorf("Unknown action: %v", action))

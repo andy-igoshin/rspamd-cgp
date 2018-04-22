@@ -120,6 +120,10 @@ func Putline(format string, a ...interface{}) {
 	syscall.Write(int(os.Stdout.Fd()), []byte(s))
 }
 
+func Reject(seq int) {
+	Putline("%d REJECT Try again later\n", seq)
+}
+
 func ReplaceSpecChars(msgo *string) *string {
 
 	var msgn string
