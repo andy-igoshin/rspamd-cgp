@@ -41,7 +41,7 @@ finalize:
 			cgp.Putline("%d INTF %d\n", seq, cgp.Protocol(arg))
 
 		case cmd == "QUIT" && n == 2:
-			cgp.Putline("%d OK\n", seq)
+			cgp.Ok(seq)
 			break finalize
 
 		default:
