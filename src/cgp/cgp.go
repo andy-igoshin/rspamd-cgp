@@ -11,9 +11,18 @@ import (
 )
 
 var reSMTP *regexp.Regexp
+var protocol int
 
 func init() {
 	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTPU?|AIRSYNC|XIMSS) \[([0-9a-f.:]+)\]`)
+}
+
+func AddHeader(seq int, headers *string) {
+	if protocol >= 4 {
+		Putline("%d ADDHEADER \"%s\" OK\n", seq, *headers)
+	} else {
+		Putline("%d ADDHEADER \"%s\"\n", seq, *headers)
+	}
 }
 
 func Message(filename *string) (from string, rcpts []string, auth string, ip string, qid int, body []byte, err error) {
@@ -86,6 +95,11 @@ finalize:
 	}
 
 	return
+}
+
+func Protocol(ver string) int {
+	protocol, _ = strconv.Atoi(ver)
+	return protocol
 }
 
 func Putline(format string, a ...interface{}) {

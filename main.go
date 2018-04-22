@@ -9,8 +9,6 @@ import (
 	"rspamc"
 )
 
-const protocol = 4
-
 func main() {
 
 	var arg, cmd string
@@ -40,7 +38,7 @@ finalize:
 			go rspamc.Scan(seq, arg)
 
 		case cmd == "INTF" && n == 3:
-			cgp.Putline("%d INTF %d\n", seq, protocol)
+			cgp.Putline("%d INTF %d\n", seq, cgp.Protocol(arg))
 
 		case cmd == "QUIT" && n == 2:
 			cgp.Putline("%d OK\n", seq)

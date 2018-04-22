@@ -123,7 +123,7 @@ func Scan(seq int, filename string) {
 	switch action {
 	case "no action":
 		if headers != "" {
-			cgp.Putline("%d ADDHEADER \"%s\" OK\n", seq, *cgp.ReplaceSpecChars(&headers))
+			cgp.AddHeader(seq, cgp.ReplaceSpecChars(&headers))
 		} else {
 			cgp.Putline("%d OK\n", seq)
 		}
@@ -132,16 +132,16 @@ func Scan(seq int, filename string) {
 		if discard {
 			cgp.Putline("%d DISCARD\n", seq)
 		} else {
-			cgp.Putline("%d ADDHEADER \"%s\" OK\n", seq, *cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkR)))
+			cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkR)))
 		}
 
 	case "rewrite subject":
 		fallthrough
 	case "add header":
-		cgp.Putline("%d ADDHEADER \"%s\" OK\n", seq, *cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkA)))
+		cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkA)))
 
 	case "greylist":
-		cgp.Putline("%d ADDHEADER \"%s\" OK\n", seq, *cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkG)))
+		cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkG)))
 
 	case "soft reject":
 		cgp.Putline("%d REJECT Try again later\n", seq)
