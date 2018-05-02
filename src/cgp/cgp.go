@@ -63,7 +63,6 @@ func Message(filename *string) (from string, rcpts []string, auth string, ip str
 	var line []byte
 	var pos int64
 
-finalize:
 	for m := bufio.NewReader(h); ; {
 
 		line, err = m.ReadSlice('\n')
@@ -74,7 +73,7 @@ finalize:
 		pos += int64(len(line))
 
 		if string(line) == "\n" {
-			break finalize
+			break
 		}
 
 		switch line[0] {
