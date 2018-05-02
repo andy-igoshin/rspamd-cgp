@@ -6,9 +6,10 @@ import (
 )
 
 type Config struct {
-	Discard bool
-	Host    string
-	Timeout time.Duration
+	AuthservId string
+	Discard    bool
+	Host       string
+	Timeout    time.Duration
 }
 
 func New() *Config {
@@ -17,6 +18,7 @@ func New() *Config {
 
 	var rejectAction string
 
+	flag.StringVar(&config.AuthservId, "authserv-id", "", "Authentication Identifier (default CommuniGate Pro Main Domain)")
 	flag.StringVar(&config.Host, "host", "localhost:11333", "Rspamd host to connect")
 	flag.StringVar(&rejectAction, "reject-action", "add_header", "Reject action: \"add_header\" or \"discard\"")
 	flag.DurationVar(&config.Timeout, "timeout", 15*time.Second, "Rspamd request timeout")
