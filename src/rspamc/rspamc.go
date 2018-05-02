@@ -18,6 +18,7 @@ var (
 	headerJunkR string = "X-Junk-Score: [XXXXXXXXXX]"
 )
 
+var authservId string
 var client *http.Client
 var discard bool
 var host string
@@ -25,6 +26,12 @@ var host string
 func init() {
 
 	config := config.New()
+
+	if config.AuthservId != "" {
+		authservId = config.AuthservId
+	} else {
+		authservId = cgp.MainDomain
+	}
 
 	discard = config.Discard
 	host = "http://" + config.Host + "/checkv2"
@@ -62,6 +69,7 @@ func Scan(seq int, filename string) {
 		return
 	}
 
+	req.Header.Add("MTA-Tag", authservId)
 	req.Header.Add("User-Agent", "rspamd-cgp")
 	req.Header.Add("From", from)
 	req.Header.Add("Queue-ID", strconv.Itoa(qid))
