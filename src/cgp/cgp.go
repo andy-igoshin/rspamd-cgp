@@ -10,11 +10,19 @@ import (
 	"syscall"
 )
 
+var MainDomain string
+var reMD *regexp.Regexp
 var reSMTP *regexp.Regexp
 var protocol int
 
 func init() {
+	reMD = regexp.MustCompile(`^\s+DomainName\s+=\s+([^;]+);`)
 	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTPU?|AIRSYNC|XIMSS) \[([0-9a-f.:]+)\]`)
+
+	err := setMainDomain()
+	if err != nil {
+		Putline("* Can not detect Main Domain: %v\n", err)
+	}
 }
 
 func AddHeader(seq int, headers *string) {
@@ -158,6 +166,32 @@ func ReplaceSpecChars(msgo *string) *string {
 	}
 
 	return &msgn
+}
+
+func setMainDomain() (err error) {
+
+	h, err := os.Open("Settings/Main.settings")
+	if err != nil {
+		return
+	}
+	defer h.Close()
+
+	var line []byte
+
+	for m := bufio.NewReader(h); ; {
+
+		line, err = m.ReadSlice('\n')
+		if err != nil {
+			return
+		}
+
+		if s := reMD.FindAllStringSubmatch(string(line), -1); s != nil {
+			MainDomain = s[0][1]
+			break
+		}
+	}
+
+	return
 }
 
 func uniqueNonEmptyElementsOf(s []string) []string {
