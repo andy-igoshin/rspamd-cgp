@@ -12,6 +12,8 @@
 
 
     Usage of rspamd-cgp:
+      -authserv-id string
+            Authentication Identifier (default CommuniGate Pro Main Domain)
       -host string
             Rspamd host to connect (default "localhost:11333")
       -reject-action string
