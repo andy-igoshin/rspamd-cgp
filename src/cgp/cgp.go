@@ -12,11 +12,13 @@ import (
 
 var MainDomain string
 var reMD *regexp.Regexp
+var reSELF *regexp.Regexp
 var reSMTP *regexp.Regexp
 var protocol int
 
 func init() {
 	reMD = regexp.MustCompile(`^\s+DomainName\s+=\s+([^;]+);`)
+	reSELF = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:DSN|GROUP|LIST|PBX|PIPE|RULE) \[0\.0\.0\.0\]`)
 	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTPU?|AIRSYNC|XIMSS) \[([0-9a-f.:]+)\]`)
 
 	err := setMainDomain()
@@ -89,6 +91,9 @@ func Message(filename *string) (from string, rcpts []string, auth string, ip str
 			if s := reSMTP.FindAllStringSubmatch(string(line), -1); s != nil {
 				auth = s[0][1]
 				ip = s[0][2]
+			} else if s := reSELF.FindAllStringSubmatch(string(line), -1); s != nil {
+				auth = s[0][1]
+				ip = "127.2.4.7"
 			}
 		}
 	}
