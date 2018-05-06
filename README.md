@@ -6,7 +6,7 @@
 
 
     Copyright (C) 2017-2018 Andrey Igoshin <ai@vsu.ru>
-    Version 1.2.4
+    Version 1.2.5
 
     https://git.vsu.ru/ai/rspamd-cgp
 
