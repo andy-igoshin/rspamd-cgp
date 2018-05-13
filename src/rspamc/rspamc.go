@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 var (
@@ -110,13 +109,12 @@ func Scan(seq int, filename string) {
 
 	if milter, ok := js["milter"]; ok {
 		if hdrs, ok := milter.(map[string]interface{})["add_headers"]; ok {
-			if ar, ok := hdrs.(map[string]interface{})["Authentication-Results"]; ok {
-				if v, ok := ar.(map[string]interface{})["value"].(string); ok && v != "" {
-					hdr := "Authentication-Results: " + strings.Replace(v, "; ", ";\n\t", -1)
+			for h, vh := range hdrs.(map[string]interface{}) {
+				if v, ok := vh.(map[string]interface{})["value"].(string); ok && v != "" {
 					if headers != "" {
-						headers = "\n" + hdr
+						headers += "\n" + h + ": " + v
 					} else {
-						headers = hdr
+						headers = h + ": " + v
 					}
 				}
 			}
