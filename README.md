@@ -5,8 +5,8 @@
     http://www.communigate.com/CGPMcAfee/#Integrate
 
 
-    Copyright (C) 2017-2018 Andrey Igoshin <ai@vsu.ru>
-    Version 1.2.5
+    Copyright (C) 2017-2021 Andrey Igoshin <ai@vsu.ru>
+    Version 1.3.0
 
     https://git.vsu.ru/ai/rspamd-cgp
 
