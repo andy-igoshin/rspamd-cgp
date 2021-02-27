@@ -2,11 +2,12 @@ package main
 
 import (
 	"bufio"
-	"cgp"
 	"fmt"
 	"io"
 	"os"
-	"rspamc"
+
+	"git.vsu.ru/ai/rspamd-cgp/cgp"
+	"git.vsu.ru/ai/rspamd-cgp/rspamc"
 )
 
 func main() {
