@@ -3,7 +3,7 @@
 export GOPATH="${HOME}/src/rspamd-cgp"
 
 if   [ "$1" == "fmt" ]; then
-    go fmt $2
+    go fmt $*
 elif [ "$1" == "tidy" ]; then
     go mod tidy
 elif [ "$1" == "vet" ]; then
