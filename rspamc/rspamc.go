@@ -149,10 +149,9 @@ func Scan(seq int, filename string) {
 		cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkA)))
 
 	case "greylist":
-		cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkG)))
-
+		fallthrough
 	case "soft reject":
-		cgp.Reject(seq)
+		cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkG)))
 
 	default:
 		cgp.Failure(seq, qid, fmt.Errorf("Unknown action: %v", action))
