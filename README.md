@@ -14,6 +14,8 @@
     Usage of rspamd-cgp:
       -authserv-id string
             Authentication Identifier (default CommuniGate Pro Main Domain)
+      -discard-score uint
+            Discard score to force "discard" (default 900)
       -host string
             Rspamd host to connect (default "localhost:11333")
       -reject-action string
