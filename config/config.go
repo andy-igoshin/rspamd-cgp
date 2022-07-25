@@ -6,10 +6,11 @@ import (
 )
 
 type Config struct {
-	AuthservId string
-	Discard    bool
-	Host       string
-	Timeout    time.Duration
+	AuthservId   string
+	Discard      bool
+	DiscardScore uint
+	Host         string
+	Timeout      time.Duration
 }
 
 func New() *Config {
@@ -20,6 +21,7 @@ func New() *Config {
 
 	flag.StringVar(&config.AuthservId, "authserv-id", "", "Authentication Identifier (default CommuniGate Pro Main Domain)")
 	flag.StringVar(&config.Host, "host", "localhost:11333", "Rspamd host to connect")
+	flag.UintVar(&config.DiscardScore, "discard-score", 900, "Discard score to force \"discard\"")
 	flag.StringVar(&rejectAction, "reject-action", "add_header", "Reject action: \"add_header\" or \"discard\"")
 	flag.DurationVar(&config.Timeout, "timeout", 15*time.Second, "Rspamd request timeout")
 

@@ -22,6 +22,7 @@ var (
 var authservId string
 var client *http.Client
 var discard bool
+var discardScore uint
 var host string
 
 func init() {
@@ -35,6 +36,7 @@ func init() {
 	}
 
 	discard = config.Discard
+	discardScore = config.DiscardScore
 	host = "http://" + config.Host + "/checkv2"
 
 	tr := &http.Transport{
@@ -124,9 +126,10 @@ func Scan(seq int, filename string) {
 	}
 
 	action := js["action"]
+	score := (js["score"]).(float64)
 
 	cgp.Putline("* %d [%d]: Action: %s; Score: %.2f/%.2f; Time elapsed: %.3fs\n",
-		seq, qid, action, js["score"], js["required_score"], js["time_real"])
+		seq, qid, action, score, js["required_score"], js["time_real"])
 
 	switch action {
 	case "no action":
@@ -138,6 +141,10 @@ func Scan(seq int, filename string) {
 
 	case "reject":
 		if discard {
+			cgp.Discard(seq)
+		} else if uint(score) >= discardScore {
+			cgp.Putline("* %d [%d]: Action set to discard due to Score(%.2f) >= discardScore(%d)\n",
+				seq, qid, score, discardScore)
 			cgp.Discard(seq)
 		} else {
 			cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkR)))
