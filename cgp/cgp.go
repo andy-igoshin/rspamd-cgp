@@ -123,6 +123,24 @@ func Message(filename *string) (from string, rcpts []string, auth string, ip str
 	return
 }
 
+func MirrorTo(seq int, to []string, headers *string) {
+	if protocol >= 4 {
+
+		if len(to) > 0 {
+			mirrorTo := []string{}
+			for _, m := range to {
+				mirrorTo = append(mirrorTo, fmt.Sprintf("MIRRORTO \"%s\"", m))
+			}
+			Putline("%d %s ADDHEADER \"%s\" OK\n", seq, strings.Join(mirrorTo, " "), *headers)
+		} else {
+			Putline("%d ADDHEADER \"%s\" OK\n", seq, *headers)
+		}
+
+	} else {
+		Putline("%d ADDHEADER \"%s\"\n", seq, *headers)
+	}
+}
+
 func Ok(seq int) {
 	Putline("%d OK\n", seq)
 }

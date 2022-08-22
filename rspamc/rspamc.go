@@ -21,8 +21,8 @@ var (
 
 var authservId string
 var client *http.Client
-var discard bool
-var discardScore uint
+var mirrorTo []string
+var rejectScore float64
 var host string
 
 func init() {
@@ -35,8 +35,8 @@ func init() {
 		authservId = cgp.MainDomain
 	}
 
-	discard = config.Discard
-	discardScore = config.DiscardScore
+	mirrorTo = config.MirrorTo
+	rejectScore = config.RejectScore
 	host = "http://" + config.Host + "/checkv2"
 
 	tr := &http.Transport{
@@ -133,18 +133,22 @@ func Scan(seq int, filename string) {
 
 	switch action {
 	case "no action":
-		if headers != "" {
+		if len(headers) > 0 {
 			cgp.AddHeader(seq, cgp.ReplaceSpecChars(&headers))
 		} else {
 			cgp.Ok(seq)
 		}
 
+	case "discard":
+		cgp.Discard(seq)
+
+	case "quarantine":
+		cgp.MirrorTo(seq, mirrorTo, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkR)))
+
 	case "reject":
-		if discard {
-			cgp.Discard(seq)
-		} else if uint(score) >= discardScore {
-			cgp.Putline("* %d [%d]: Action set to discard due to Score(%.2f) >= discardScore(%d)\n",
-				seq, qid, score, discardScore)
+		if score >= rejectScore {
+			cgp.Putline("* %d [%d]: Action set to discard due to Score(%.2f) >= rejectScore(%d)\n",
+				seq, qid, score, rejectScore)
 			cgp.Discard(seq)
 		} else {
 			cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkR)))
@@ -163,5 +167,4 @@ func Scan(seq int, filename string) {
 	default:
 		cgp.Failure(seq, qid, fmt.Errorf("Unknown action: %v", action))
 	}
-
 }
