@@ -49,10 +49,10 @@ func init() {
 	}
 }
 
-func appendHeaders(hdrs, junk *string) *string {
-	if *hdrs != "" {
-		headers := *hdrs + "\n" + *junk
-		return &headers
+func appendHeaders(hdrs, junk string) string {
+	if len(hdrs) > 0 {
+		headers := hdrs + "\n" + junk
+		return headers
 	} else {
 		return junk
 	}
@@ -134,7 +134,7 @@ func Scan(seq int, filename string) {
 	switch action {
 	case "no action":
 		if len(headers) > 0 {
-			cgp.AddHeader(seq, cgp.ReplaceSpecChars(&headers))
+			cgp.AddHeader(seq, headers)
 		} else {
 			cgp.Ok(seq)
 		}
@@ -143,7 +143,7 @@ func Scan(seq int, filename string) {
 		cgp.Discard(seq)
 
 	case "quarantine":
-		cgp.MirrorTo(seq, mirrorTo, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkR)))
+		cgp.MirrorTo(seq, mirrorTo, appendHeaders(headers, headerJunkR))
 
 	case "reject":
 		if score >= rejectScore {
@@ -151,18 +151,18 @@ func Scan(seq int, filename string) {
 				seq, qid, score, rejectScore)
 			cgp.Discard(seq)
 		} else {
-			cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkR)))
+			cgp.AddHeader(seq, appendHeaders(headers, headerJunkR))
 		}
 
 	case "rewrite subject":
 		fallthrough
 	case "add header":
-		cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkA)))
+		cgp.AddHeader(seq, appendHeaders(headers, headerJunkA))
 
 	case "greylist":
 		fallthrough
 	case "soft reject":
-		cgp.AddHeader(seq, cgp.ReplaceSpecChars(appendHeaders(&headers, &headerJunkG)))
+		cgp.AddHeader(seq, appendHeaders(headers, headerJunkG))
 
 	default:
 		cgp.Failure(seq, qid, fmt.Errorf("Unknown action: %v", action))

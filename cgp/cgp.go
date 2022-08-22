@@ -27,11 +27,14 @@ func init() {
 	}
 }
 
-func AddHeader(seq int, headers *string) {
+func AddHeader(seq int, headers string) {
+
+	hdrs := replaceSpecChars(headers)
+
 	if protocol >= 4 {
-		Putline("%d ADDHEADER \"%s\" OK\n", seq, *headers)
+		Putline("%d ADDHEADER \"%s\" OK\n", seq, hdrs)
 	} else {
-		Putline("%d ADDHEADER \"%s\"\n", seq, *headers)
+		Putline("%d ADDHEADER \"%s\"\n", seq, hdrs)
 	}
 }
 
@@ -123,21 +126,27 @@ func Message(filename *string) (from string, rcpts []string, auth string, ip str
 	return
 }
 
-func MirrorTo(seq int, to []string, headers *string) {
+func MirrorTo(seq int, to []string, headers string) {
+
+	hdrs := replaceSpecChars(headers)
+
 	if protocol >= 4 {
 
 		if len(to) > 0 {
+
 			mirrorTo := []string{}
 			for _, m := range to {
 				mirrorTo = append(mirrorTo, fmt.Sprintf("MIRRORTO \"%s\"", m))
 			}
-			Putline("%d %s ADDHEADER \"%s\" OK\n", seq, strings.Join(mirrorTo, " "), *headers)
+
+			Putline("%d %s ADDHEADER \"%s\" OK\n", seq, strings.Join(mirrorTo, " "), hdrs)
+
 		} else {
-			Putline("%d ADDHEADER \"%s\" OK\n", seq, *headers)
+			Putline("%d ADDHEADER \"%s\" OK\n", seq, hdrs)
 		}
 
 	} else {
-		Putline("%d ADDHEADER \"%s\"\n", seq, *headers)
+		Putline("%d ADDHEADER \"%s\"\n", seq, hdrs)
 	}
 }
 
@@ -154,11 +163,11 @@ func Reject(seq int) {
 	Putline("%d REJECT Try again later\n", seq)
 }
 
-func ReplaceSpecChars(msgo *string) *string {
+func replaceSpecChars(msgo string) string {
 
 	var msgn string
 
-	for _, symbol := range *msgo {
+	for _, symbol := range msgo {
 
 		switch symbol {
 		case rune('\\'):
@@ -187,7 +196,7 @@ func ReplaceSpecChars(msgo *string) *string {
 		}
 	}
 
-	return &msgn
+	return msgn
 }
 
 func setMainDomain() (err error) {
