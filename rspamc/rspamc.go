@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"strconv"
 
 	json "github.com/json-iterator/go"
@@ -99,14 +100,14 @@ func Scan(seq int, filename string) {
 	var headers []string
 
 	if _, ok := js["dkim-signature"]; ok {
-		headers = append(headers, "DKIM-Signature: " + js["dkim-signature"].(string))
+		headers = append(headers, strings.Join([]string{"DKIM-Signature: ", js["dkim-signature"].(string)}, ""))
 	}
 
 	if milter, ok := js["milter"]; ok {
 		if hdrs, ok := milter.(map[string]interface{})["add_headers"]; ok {
 			for h, vh := range hdrs.(map[string]interface{}) {
 				if v, ok := vh.(map[string]interface{})["value"].(string); ok && v != "" {
-					headers = append(headers, h + ": " + v)
+					headers = append(headers, strings.Join([]string{h, v}, ": "))
 				}
 			}
 		}
