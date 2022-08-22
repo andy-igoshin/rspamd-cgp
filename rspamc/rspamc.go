@@ -49,15 +49,6 @@ func init() {
 	}
 }
 
-func appendHeaders(hdrs, junk string) string {
-	if len(hdrs) > 0 {
-		headers := hdrs + "\n" + junk
-		return headers
-	} else {
-		return junk
-	}
-}
-
 func Scan(seq int, filename string) {
 
 	from, rcpts, auth, ip, qid, body, err := cgp.Message(&filename)
@@ -105,21 +96,17 @@ func Scan(seq int, filename string) {
 		return
 	}
 
-	var headers string
+	var headers []string
 
 	if _, ok := js["dkim-signature"]; ok {
-		headers = "DKIM-Signature: " + js["dkim-signature"].(string)
+		headers = append(headers, "DKIM-Signature: " + js["dkim-signature"].(string))
 	}
 
 	if milter, ok := js["milter"]; ok {
 		if hdrs, ok := milter.(map[string]interface{})["add_headers"]; ok {
 			for h, vh := range hdrs.(map[string]interface{}) {
 				if v, ok := vh.(map[string]interface{})["value"].(string); ok && v != "" {
-					if headers != "" {
-						headers += "\n" + h + ": " + v
-					} else {
-						headers = h + ": " + v
-					}
+					headers = append(headers, h + ": " + v)
 				}
 			}
 		}
@@ -143,7 +130,7 @@ func Scan(seq int, filename string) {
 		cgp.Discard(seq)
 
 	case "quarantine":
-		cgp.MirrorTo(seq, mirrorTo, appendHeaders(headers, headerJunkR))
+		cgp.MirrorTo(seq, mirrorTo, append(headers, headerJunkR))
 
 	case "reject":
 		if score >= rejectScore {
@@ -151,18 +138,18 @@ func Scan(seq int, filename string) {
 				seq, qid, score, rejectScore)
 			cgp.Discard(seq)
 		} else {
-			cgp.AddHeader(seq, appendHeaders(headers, headerJunkR))
+			cgp.AddHeader(seq, append(headers, headerJunkR))
 		}
 
 	case "rewrite subject":
 		fallthrough
 	case "add header":
-		cgp.AddHeader(seq, appendHeaders(headers, headerJunkA))
+		cgp.AddHeader(seq, append(headers, headerJunkA))
 
 	case "greylist":
 		fallthrough
 	case "soft reject":
-		cgp.AddHeader(seq, appendHeaders(headers, headerJunkG))
+		cgp.AddHeader(seq, append(headers, headerJunkG))
 
 	default:
 		cgp.Failure(seq, qid, fmt.Errorf("Unknown action: %v", action))

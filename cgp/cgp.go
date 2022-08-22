@@ -27,9 +27,9 @@ func init() {
 	}
 }
 
-func AddHeader(seq int, headers string) {
+func AddHeader(seq int, headers []string) {
 
-	hdrs := replaceSpecChars(headers)
+	hdrs := replaceSpecChars(strings.Join(headers, "\n"))
 
 	if protocol >= 4 {
 		Putline("%d ADDHEADER \"%s\" OK\n", seq, hdrs)
@@ -126,9 +126,9 @@ func Message(filename *string) (from string, rcpts []string, auth string, ip str
 	return
 }
 
-func MirrorTo(seq int, to []string, headers string) {
+func MirrorTo(seq int, to []string, headers []string) {
 
-	hdrs := replaceSpecChars(headers)
+	hdrs := replaceSpecChars(strings.Join(headers, "\n"))
 
 	if protocol >= 4 {
 
