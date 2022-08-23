@@ -52,7 +52,7 @@ func init() {
 
 func Scan(seq int, filename string) {
 
-	from, rcpts, auth, ip, qid, body, err := cgp.Message(&filename)
+	from, rcpts, auth, ip, qid, body, err := cgp.Message(filename)
 	if err != nil {
 		cgp.Failure(seq, qid, err)
 		return

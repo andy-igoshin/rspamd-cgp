@@ -52,14 +52,14 @@ func Intf(seq int, ver string) {
 	Putline("%d INTF %d\n", seq, protocol)
 }
 
-func Message(filename *string) (from string, rcpts []string, auth string, ip string, qid int, body []byte, err error) {
+func Message(filename string) (from string, rcpts []string, auth string, ip string, qid int, body []byte, err error) {
 
-	qid, err = strconv.Atoi((*filename)[strings.LastIndexByte(*filename, '/')+1 : strings.LastIndexByte(*filename, '.')])
+	qid, err = strconv.Atoi((filename)[strings.LastIndexByte(filename, '/')+1 : strings.LastIndexByte(filename, '.')])
 	if err != nil {
 		return
 	}
 
-	h, err := os.Open(*filename)
+	h, err := os.Open(filename)
 	if err != nil {
 		return
 	}
