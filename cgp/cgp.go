@@ -163,16 +163,17 @@ func Reject(seq int) {
 	Putline("%d REJECT Try again later\n", seq)
 }
 
-func replaceSpecChars(msgo string) string {
+func replaceSpecChars(msg string) string {
 
-	var msgn string
+	var sb strings.Builder
+	sb.Grow(len(msg) + 64)
 
-	for _, symbol := range msgo {
+	for _, symbol := range msg {
 
 		switch symbol {
 		case rune('\\'):
 			// replace \ -> \\   (CGP backslash)
-			msgn += "\\\\"
+			sb.WriteString("\\\\")
 
 		case 0x0000:
 			fallthrough
@@ -181,22 +182,22 @@ func replaceSpecChars(msgo string) string {
 
 		case rune('\n'):
 			// replace \n -> \\e (CGP End-of-Line)
-			msgn += "\\e"
+			sb.WriteString("\\e")
 
 		case rune('\t'):
 			// replace \t -> \\t (CGP Tab)
-			msgn += "\\t"
+			sb.WriteString("\\t")
 
 		case rune('"'):
 			// replace \" -> \\" (CGP quote)
-			msgn += "\\\""
+			sb.WriteString("\\\"")
 
 		default:
-			msgn += string(symbol)
+			sb.WriteRune(symbol)
 		}
 	}
 
-	return msgn
+	return sb.String()
 }
 
 func setMainDomain() (err error) {
