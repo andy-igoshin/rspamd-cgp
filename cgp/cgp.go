@@ -166,7 +166,7 @@ func Reject(seq int) {
 func replaceSpecChars(msg string) string {
 
 	var sb strings.Builder
-	sb.Grow(len(msg) + 64)
+	sb.Grow(len(msg) + 128)
 
 	for _, symbol := range msg {
 
