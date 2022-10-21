@@ -9,6 +9,7 @@ import (
 
 type Config struct {
 	AuthservId  string
+	Debug       bool
 	Host        string
 	MirrorTo    []string
 	RejectScore float64
@@ -26,6 +27,7 @@ func New() *Config {
 	flag.StringVar(&mirrorTo, "mirror-to", "", "Mirror selected messages to email")
 	flag.Float64Var(&config.RejectScore, "reject-score", math.Inf(1), "Reject score to discard")
 	flag.DurationVar(&config.Timeout, "timeout", 15*time.Second, "Rspamd request timeout")
+	flag.BoolVar(&config.Debug, "debug", false, "Export debug information (for developers)")
 
 	flag.Parse()
 

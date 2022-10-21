@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
+	"os"
+	"reflect"
 	"strconv"
+	"strings"
 
 	json "github.com/json-iterator/go"
 
@@ -25,6 +27,7 @@ var client *http.Client
 var mirrorTo []string
 var rejectScore float64
 var host string
+var debug bool
 
 func init() {
 
@@ -39,6 +42,7 @@ func init() {
 	mirrorTo = config.MirrorTo
 	rejectScore = config.RejectScore
 	host = "http://" + config.Host + "/checkv2"
+	debug = config.Debug
 
 	tr := &http.Transport{
 		DisableCompression: true,
@@ -48,6 +52,11 @@ func init() {
 		Timeout:   config.Timeout,
 		Transport: tr,
 	}
+}
+
+func printResponse(v any) {
+	printed, _ := json.MarshalIndent(v, "", "  ")
+	fmt.Fprintln(os.Stderr, string(printed))
 }
 
 func Scan(seq int, filename string) {
@@ -97,6 +106,10 @@ func Scan(seq int, filename string) {
 		return
 	}
 
+	if debug {
+		printResponse(js)
+	}
+
 	var headers []string
 
 	if _, ok := js["dkim-signature"]; ok {
@@ -105,9 +118,11 @@ func Scan(seq int, filename string) {
 
 	if milter, ok := js["milter"]; ok {
 		if hdrs, ok := milter.(map[string]interface{})["add_headers"]; ok {
-			for h, vh := range hdrs.(map[string]interface{}) {
-				if v, ok := vh.(map[string]interface{})["value"].(string); ok && v != "" {
-					headers = append(headers, strings.Join([]string{h, v}, ": "))
+			if reflect.TypeOf(hdrs).String() == "map[string]interface {}" {
+				for h, vh := range hdrs.(map[string]interface{}) {
+					if v, ok := vh.(map[string]interface{})["value"].(string); ok && v != "" {
+						headers = append(headers, strings.Join([]string{h, v}, ": "))
+					}
 				}
 			}
 		}
