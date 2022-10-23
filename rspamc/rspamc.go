@@ -120,8 +120,10 @@ func Scan(seq int, filename string) {
 		if hdrs, ok := milter.(map[string]interface{})["add_headers"]; ok {
 			if reflect.TypeOf(hdrs).String() == "map[string]interface {}" {
 				for h, vh := range hdrs.(map[string]interface{}) {
-					if v, ok := vh.(map[string]interface{})["value"].(string); ok && v != "" {
-						headers = append(headers, strings.Join([]string{h, v}, ": "))
+					if reflect.TypeOf(vh).String() == "map[string]interface {}" {
+						if v, ok := vh.(map[string]interface{})["value"].(string); ok && v != "" {
+							headers = append(headers, strings.Join([]string{h, v}, ": "))
+						}
 					}
 				}
 			}
