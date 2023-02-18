@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	AuthservId  string
-	Debug       bool
-	Host        string
-	MirrorTo    []string
-	RejectScore float64
-	Timeout     time.Duration
+	AuthservId    string
+	Debug         bool
+	Host          string
+	MirrorDiscard bool
+	MirrorTo      []string
+	RejectScore   float64
+	Timeout       time.Duration
 }
 
 func New() *Config {
@@ -24,6 +25,7 @@ func New() *Config {
 
 	flag.StringVar(&config.AuthservId, "authserv-id", "", "Authentication Identifier (default CommuniGate Pro Main Domain)")
 	flag.StringVar(&config.Host, "host", "localhost:11333", "Rspamd host to connect")
+	flag.BoolVar(&config.MirrorDiscard, "mirror-discard", false, "Mirror then discard selected messages")
 	flag.StringVar(&mirrorTo, "mirror-to", "", "Mirror selected messages to email")
 	flag.Float64Var(&config.RejectScore, "reject-score", math.Inf(1), "Reject score to discard")
 	flag.DurationVar(&config.Timeout, "timeout", 15*time.Second, "Rspamd request timeout")
@@ -33,6 +35,10 @@ func New() *Config {
 
 	if len(mirrorTo) > 0 {
 		config.MirrorTo = strings.Split(strings.ReplaceAll(mirrorTo, " ", ""), ",")
+	}
+
+	if config.MirrorDiscard && len(config.MirrorTo) == 0 {
+		config.MirrorDiscard = false
 	}
 
 	if config.Timeout < time.Second {

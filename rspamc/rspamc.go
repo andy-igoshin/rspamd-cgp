@@ -24,6 +24,7 @@ var (
 
 var authservId string
 var client *http.Client
+var mirrorDiscard bool
 var mirrorTo []string
 var rejectScore float64
 var host string
@@ -39,6 +40,7 @@ func init() {
 		authservId = cgp.MainDomain
 	}
 
+	mirrorDiscard = config.MirrorDiscard
 	mirrorTo = config.MirrorTo
 	rejectScore = config.RejectScore
 	host = "http://" + config.Host + "/checkv2"
@@ -148,7 +150,7 @@ func Scan(seq int, filename string) {
 		cgp.Discard(seq)
 
 	case "quarantine":
-		cgp.MirrorTo(seq, mirrorTo, append(headers, headerJunkR))
+		cgp.MirrorTo(seq, mirrorTo, append(headers, headerJunkR), mirrorDiscard)
 
 	case "reject":
 		if score >= rejectScore {

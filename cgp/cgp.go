@@ -126,7 +126,7 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 	return
 }
 
-func MirrorTo(seq int, to []string, headers []string) {
+func MirrorTo(seq int, to []string, headers []string, mirrorDiscard bool) {
 
 	hdrs := replaceSpecChars(strings.Join(headers, "\n"))
 
@@ -139,7 +139,11 @@ func MirrorTo(seq int, to []string, headers []string) {
 				mirrorTo = append(mirrorTo, fmt.Sprintf("MIRRORTO \"%s\"", m))
 			}
 
-			Putline("%d %s ADDHEADER \"%s\" OK\n", seq, strings.Join(mirrorTo, " "), hdrs)
+			if mirrorDiscard {
+				Putline("%d %s DISCARD\n", seq, strings.Join(mirrorTo, " "))
+			} else {
+				Putline("%d %s ADDHEADER \"%s\" OK\n", seq, strings.Join(mirrorTo, " "), hdrs)
+			}
 
 		} else {
 			Putline("%d ADDHEADER \"%s\" OK\n", seq, hdrs)
