@@ -2,7 +2,6 @@ package config
 
 import (
 	"flag"
-	"math"
 	"strings"
 	"time"
 )
@@ -13,7 +12,6 @@ type Config struct {
 	Host          string
 	MirrorDiscard bool
 	MirrorTo      []string
-	RejectScore   float64
 	Timeout       time.Duration
 }
 
@@ -27,7 +25,6 @@ func New() *Config {
 	flag.StringVar(&config.Host, "host", "localhost:11333", "Rspamd host to connect")
 	flag.BoolVar(&config.MirrorDiscard, "mirror-discard", false, "Mirror then discard selected messages")
 	flag.StringVar(&mirrorTo, "mirror-to", "", "Mirror selected messages to email")
-	flag.Float64Var(&config.RejectScore, "reject-score", math.Inf(1), "Reject score to discard")
 	flag.DurationVar(&config.Timeout, "timeout", 15*time.Second, "Rspamd request timeout")
 	flag.BoolVar(&config.Debug, "debug", false, "Export debug information (for developers)")
 

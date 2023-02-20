@@ -5,8 +5,8 @@
     http://www.communigate.com/CGPMcAfee/#Integrate
 
 
-    Copyright (C) 2017-2022 Andrey Igoshin <ai@vsu.ru>
-    Version 1.4.0
+    Copyright (C) 2017-2023 Andrey Igoshin <ai@vsu.ru>
+    Version 1.4.5
 
     https://git.vsu.ru/ai/rspamd-cgp
 
@@ -16,9 +16,9 @@
             Authentication Identifier (default CommuniGate Pro Main Domain)
       -host string
             Rspamd host to connect (default "localhost:11333")
+      -mirror-discard
+            Mirror then discard selected messages
       -mirror-to string
             Mirror selected messages to email
-      -reject-score float
-            Reject score to discard (default +Inf)
       -timeout duration
             Rspamd request timeout (default 15s)

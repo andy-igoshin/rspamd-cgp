@@ -26,7 +26,6 @@ var authservId string
 var client *http.Client
 var mirrorDiscard bool
 var mirrorTo []string
-var rejectScore float64
 var host string
 var debug bool
 
@@ -42,7 +41,6 @@ func init() {
 
 	mirrorDiscard = config.MirrorDiscard
 	mirrorTo = config.MirrorTo
-	rejectScore = config.RejectScore
 	host = "http://" + config.Host + "/checkv2"
 	debug = config.Debug
 
@@ -153,13 +151,7 @@ func Scan(seq int, filename string) {
 		cgp.MirrorTo(seq, mirrorTo, append(headers, headerJunkR), mirrorDiscard)
 
 	case "reject":
-		if score >= rejectScore {
-			cgp.Putline("* %d [%d]: Action set to discard due to Score(%.2f) >= rejectScore(%d)\n",
-				seq, qid, score, rejectScore)
-			cgp.Discard(seq)
-		} else {
-			cgp.AddHeader(seq, append(headers, headerJunkR))
-		}
+		cgp.AddHeader(seq, append(headers, headerJunkR))
 
 	case "rewrite subject":
 		fallthrough
