@@ -61,9 +61,14 @@ func printResponse(v any) {
 
 func Scan(seq int, filename string) {
 
-	from, rcpts, auth, ip, qid, body, err := cgp.Message(filename)
+	from, rcpts, auth, ip, qid, body, seen, err := cgp.Message(filename)
 	if err != nil {
 		cgp.Failure(seq, qid, err)
+		return
+	}
+
+	if seen {
+		cgp.OkSeen(seq, qid)
 		return
 	}
 
@@ -100,23 +105,23 @@ func Scan(seq int, filename string) {
 		return
 	}
 
-	var js map[string]interface{}
-	if err := json.Unmarshal(rbody, &js); err != nil {
+	var res map[string]interface{}
+	if err := json.Unmarshal(rbody, &res); err != nil {
 		cgp.Failure(seq, qid, err)
 		return
 	}
 
 	if debug {
-		printResponse(js)
+		printResponse(res)
 	}
 
 	var headers []string
 
-	if _, ok := js["dkim-signature"]; ok {
-		headers = append(headers, strings.Join([]string{"DKIM-Signature: ", js["dkim-signature"].(string)}, ""))
+	if _, ok := res["dkim-signature"]; ok {
+		headers = append(headers, strings.Join([]string{"DKIM-Signature: ", res["dkim-signature"].(string)}, ""))
 	}
 
-	if milter, ok := js["milter"]; ok {
+	if milter, ok := res["milter"]; ok {
 		if hdrs, ok := milter.(map[string]interface{})["add_headers"]; ok {
 			if reflect.TypeOf(hdrs).String() == "map[string]interface {}" {
 				for h, vh := range hdrs.(map[string]interface{}) {
@@ -130,11 +135,10 @@ func Scan(seq int, filename string) {
 		}
 	}
 
-	action := js["action"]
-	score := (js["score"]).(float64)
+	action := res["action"]
 
 	cgp.Putline("* %d [%d]: Action: %s; Score: %.2f/%.2f; Time elapsed: %.3fs\n",
-		seq, qid, action, score, js["required_score"], js["time_real"])
+		seq, qid, action, res["score"], res["required_score"], res["time_real"])
 
 	switch action {
 	case "no action":
@@ -154,7 +158,12 @@ func Scan(seq int, filename string) {
 		cgp.AddHeader(seq, append(headers, headerJunkR))
 
 	case "rewrite subject":
-		fallthrough
+		if subject, ok := res["subject"]; ok {
+			cgp.RewriteSubject(seq, append(headers, headerJunkA), subject.(string), qid, from, rcpts, body)
+		} else {
+			cgp.AddHeader(seq, append(headers, headerJunkA))
+		}
+
 	case "add header":
 		cgp.AddHeader(seq, append(headers, headerJunkA))
 

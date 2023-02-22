@@ -2,13 +2,22 @@ package cgp
 
 import (
 	"bufio"
+	"bytes"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
+	"unicode"
 )
+
+const recvHdr = "Received:"
+const seenHdr = "X-Rspamd-Seen:"
+const subjHdr = "Subject:"
+const submitDir = "Submitted"
 
 var MainDomain string
 var reMD *regexp.Regexp
@@ -52,7 +61,7 @@ func Intf(seq int, ver string) {
 	Putline("%d INTF %d\n", seq, protocol)
 }
 
-func Message(filename string) (from string, rcpts []string, auth string, ip string, qid int, body []byte, err error) {
+func Message(filename string) (from string, rcpts []string, auth string, ip string, qid int, body []byte, seen bool, err error) {
 
 	qid, err = strconv.Atoi((filename)[strings.LastIndexByte(filename, '/')+1 : strings.LastIndexByte(filename, '.')])
 	if err != nil {
@@ -68,7 +77,9 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 	var line []byte
 	var pos int64
 
-	for m := bufio.NewReader(h); ; {
+	m := bufio.NewReader(h)
+
+	for {
 
 		line, err = m.ReadSlice('\n')
 		if err != nil {
@@ -101,7 +112,14 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 		}
 	}
 
-	rcpts = uniqueNonEmptyElementsOf(rcpts)
+	seen, err = isSeen(m)
+	if err != nil {
+		return
+	}
+
+	if seen {
+		return
+	}
 
 	fi, err := h.Stat()
 	if err != nil {
@@ -118,6 +136,8 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 	if err != nil {
 		return
 	}
+
+	rcpts = uniqueNonEmptyElementsOf(rcpts)
 
 	if from == "" || len(rcpts) == 0 || n < len(body) {
 		err = fmt.Errorf("cgp.Message() error: from='%s', len(to)=%d, auth='%s' ip='%s', size=%d/%d", from, len(rcpts), auth, ip, len(body), n)
@@ -158,6 +178,11 @@ func Ok(seq int) {
 	Putline("%d OK\n", seq)
 }
 
+func OkSeen(seq, qid int) {
+	Putline("* %d [%d]: Already seen by Rspamd\n", seq, qid)
+	Putline("%d OK\n", seq)
+}
+
 func Putline(format string, a ...interface{}) {
 	s := fmt.Sprintf(format, a...)
 	syscall.Write(int(os.Stdout.Fd()), []byte(s))
@@ -165,6 +190,263 @@ func Putline(format string, a ...interface{}) {
 
 func Reject(seq int) {
 	Putline("%d REJECT Try again later\n", seq)
+}
+
+func RewriteSubject(seq int, headers []string, subject string, qid int, from string, rcpts []string, body []byte) {
+
+	var err error
+	var firstRecv bool = true
+	var line []byte
+	var m *bufio.Reader
+	var hdr string
+
+	filename := fmt.Sprintf("%s/%drs.sub", submitDir, qid)
+	filetemp := strings.Replace(filename, "sub", "tmp", 1)
+
+	fh, err := os.Create(filetemp)
+	if err != nil {
+		goto fin
+	}
+	defer fh.Close()
+
+	_, err = fh.WriteString(strings.Join([]string{"Return-Path: ", from, "\n"}, ""))
+	if err != nil {
+		goto fin
+	}
+
+	for _, rcpt := range rcpts {
+		_, err = fh.WriteString(strings.Join([]string{"Envelope-To: ", rcpt, "\n"}, ""))
+		if err != nil {
+			goto fin
+		}
+	}
+
+	m = bufio.NewReader(bytes.NewReader(body))
+
+	for {
+
+		hdr, err = getHeader(m)
+		if err == io.EOF {
+			err = nil
+			if len(hdr) == 0 {
+				break
+			}
+		}
+		if err != nil {
+			goto fin
+		}
+
+		if hdr == "\n" {
+			// конец заголовка
+			_, err = fh.WriteString("\n")
+			if err != nil {
+				goto fin
+			}
+			break
+		}
+
+		if firstRecv && strings.HasPrefix(hdr, recvHdr) {
+
+			sum := fmt.Sprintf("%x", sha256.Sum224([]byte(nospace(hdr))))
+
+			_, err = fh.WriteString(strings.Join([]string{seenHdr, " ", sum, "\n"}, ""))
+			if err != nil {
+				goto fin
+			}
+
+			_, err = fh.WriteString(hdr)
+			if err != nil {
+				goto fin
+			}
+
+			firstRecv = false
+			continue
+		}
+
+		if strings.HasPrefix(hdr, subjHdr) {
+
+			_, err = fh.WriteString(strings.Join([]string{subjHdr, " ", subject, "\n"}, ""))
+			if err != nil {
+				goto fin
+			}
+
+			continue
+		}
+
+		_, err = fh.WriteString(hdr)
+		if err != nil {
+			goto fin
+		}
+	}
+
+	for {
+		line, err = m.ReadSlice('\n')
+		if err == io.EOF {
+			err = nil
+			break
+		}
+		if err != nil {
+			goto fin
+		}
+
+		_, err = fh.Write(line)
+		if err != nil {
+			goto fin
+		}
+	}
+
+	if err = fh.Close(); err != nil {
+		goto fin
+	}
+
+	err = os.Rename(filetemp, filename)
+
+fin:
+	if err != nil {
+		Failure(seq, qid, err)
+	} else {
+		Discard(seq)
+	}
+}
+
+func getHeader(m *bufio.Reader) (hdr string, err error) {
+
+	var c byte
+	var line []byte
+
+	var b strings.Builder
+	b.Grow(384)
+
+	for {
+		c, err = m.ReadByte()
+		if err == io.EOF {
+			if c == 0 {
+				break
+			} else {
+				err = nil
+			}
+		}
+		if err != nil {
+			return
+		}
+
+		if b.Len() == 0 {
+
+			if c == ' ' || c == '\t' {
+				err = m.UnreadByte()
+				if err != nil {
+					return
+				}
+				err = fmt.Errorf("bad header")
+				return
+
+			} else if c == '\n' {
+
+				b.WriteByte(c)
+				break
+
+			} else {
+
+				b.WriteByte(c)
+
+				line, err = m.ReadSlice('\n')
+				if err == io.EOF {
+					err = nil
+				}
+				if err != nil {
+					return
+				}
+
+				b.Write(line)
+			}
+
+		} else {
+
+			if c == ' ' || c == '\t' {
+
+				b.WriteByte(c)
+
+				line, err = m.ReadSlice('\n')
+				if err == io.EOF {
+					err = nil
+				}
+				if err != nil {
+					return
+				}
+
+				b.Write(line)
+
+			} else {
+				err = m.UnreadByte()
+				if err != nil {
+					return
+				}
+				break
+			}
+		}
+	}
+
+	hdr = b.String()
+
+	return
+}
+
+func isSeen(m *bufio.Reader) (seen bool, err error) {
+
+	var found bool
+	var seenSum string
+	var hdr string
+
+	for {
+
+		hdr, err = getHeader(m)
+		if err == io.EOF {
+			err = nil
+			if len(hdr) == 0 {
+				break
+			}
+		}
+		if err != nil {
+			return
+		}
+
+		if hdr == "\n" {
+			// конец заголовка
+			break
+		}
+
+		if !found {
+
+			if seenSum, found = strings.CutPrefix(hdr, seenHdr); found {
+				seenSum = strings.TrimSpace(seenSum)
+			}
+
+		} else if strings.HasPrefix(hdr, recvHdr) {
+
+			sum := fmt.Sprintf("%x", sha256.Sum224([]byte(nospace(hdr))))
+			if seenSum == sum {
+				seen = true
+			}
+
+			break
+		}
+	}
+
+	return
+}
+
+func nospace(s string) string {
+
+	var b strings.Builder
+	b.Grow(len(s))
+
+	for _, c := range s {
+		if !unicode.IsSpace(c) {
+			b.WriteRune(c)
+		}
+	}
+
+	return b.String()
 }
 
 func replaceSpecChars(msg string) string {
