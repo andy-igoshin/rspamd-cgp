@@ -2,6 +2,10 @@
 
 export GOPATH="${HOME}/src/rspamd-cgp"
 
+# если на целевой ОС не совпадает glibc, то собираем без зависимостей
+# результирующий файл, скорее всего, получится медленнее и большего размера
+export CGO_ENABLED=0
+
 if   [ "$1" == "fmt" ]; then
     go fmt $*
 elif [ "$1" == "tidy" ]; then
