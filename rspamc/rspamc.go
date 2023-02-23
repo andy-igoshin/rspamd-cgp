@@ -16,7 +16,7 @@ import (
 	"git.vsu.ru/ai/rspamd-cgp/config"
 )
 
-var (
+const (
 	headerJunkG string = "X-Junk-Score: [XX]"
 	headerJunkA string = "X-Junk-Score: [XXXX]"
 	headerJunkR string = "X-Junk-Score: [XXXXXXXXXX]"
