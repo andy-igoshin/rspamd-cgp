@@ -238,7 +238,7 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 
 		if hdr == "\n" {
 			// конец заголовка
-			_, err = fh.WriteString("\n")
+			_, err = fh.WriteString(hdr)
 			if err != nil {
 				goto fin
 			}
