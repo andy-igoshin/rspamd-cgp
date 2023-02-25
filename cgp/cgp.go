@@ -52,7 +52,7 @@ func Discard(seq int) {
 }
 
 func Failure(seq, qid int, err error) {
-	Putline("* %d [%d]: %s\n", seq, qid, err)
+	Putline("* %d [%d]: %v\n", seq, qid, err)
 	Putline("%d FAILURE\n", seq)
 }
 
