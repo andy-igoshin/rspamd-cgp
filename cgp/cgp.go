@@ -146,13 +146,20 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 	return
 }
 
-func MirrorTo(seq int, to []string, headers []string, mirrorDiscard bool) {
-
-	hdrs := replaceSpecChars(strings.Join(headers, "\n"))
+func MirrorTo(seq int, qid int, to []string, headers []string, body []byte, mirrorDiscard bool) {
 
 	if protocol >= 4 {
 
 		if len(to) > 0 {
+
+			seenHdr, err := makeSeen(body)
+			if err != nil {
+				Failure(seq, qid, err)
+				return
+			}
+
+			headers = append(headers, seenHdr)
+			hdrs := replaceSpecChars(strings.Join(headers, "\n"))
 
 			mirrorTo := []string{}
 			for _, m := range to {
@@ -166,10 +173,12 @@ func MirrorTo(seq int, to []string, headers []string, mirrorDiscard bool) {
 			}
 
 		} else {
+			hdrs := replaceSpecChars(strings.Join(headers, "\n"))
 			Putline("%d ADDHEADER \"%s\" OK\n", seq, hdrs)
 		}
 
 	} else {
+		hdrs := replaceSpecChars(strings.Join(headers, "\n"))
 		Putline("%d ADDHEADER \"%s\"\n", seq, hdrs)
 	}
 }
@@ -418,7 +427,7 @@ func isSeen(m *bufio.Reader) (seen bool, err error) {
 		}
 
 		if hdr == "\n" {
-			// конец заголовка
+			// конец RFC5322 заголовка
 			break
 		}
 
@@ -435,6 +444,38 @@ func isSeen(m *bufio.Reader) (seen bool, err error) {
 				seen = true
 			}
 
+			break
+		}
+	}
+
+	return
+}
+
+func makeSeen(body []byte) (seenhdr string, err error) {
+
+	var hdr string
+
+	m := bufio.NewReader(bytes.NewReader(body))
+
+	for {
+
+		hdr, err = getHeader(m)
+		if err == io.EOF {
+			err = nil
+			if len(hdr) == 0 {
+				break
+			}
+		}
+		if err != nil {
+			return
+		}
+
+		if hdr == "\n" {
+			break
+		}
+
+		if strings.HasPrefix(hdr, recvHdr) {
+			seenhdr = fmt.Sprintf("%s %x", seenHdr, sha256.Sum224([]byte(nospace(hdr))))
 			break
 		}
 	}

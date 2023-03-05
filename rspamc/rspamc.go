@@ -152,7 +152,7 @@ func Scan(seq int, filename string) {
 		cgp.Discard(seq)
 
 	case "quarantine":
-		cgp.MirrorTo(seq, mirrorTo, append(headers, headerJunkR), mirrorDiscard)
+		cgp.MirrorTo(seq, qid, mirrorTo, append(headers, headerJunkR), body, mirrorDiscard)
 
 	case "reject":
 		cgp.AddHeader(seq, append(headers, headerJunkR))
