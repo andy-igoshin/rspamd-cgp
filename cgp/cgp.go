@@ -221,6 +221,13 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 		}
 	}
 
+	for _, hdr = range headers {
+		_, err = fh.WriteString(hdr)
+		if err != nil {
+			goto fin
+		}
+	}
+
 	m = bufio.NewReader(bytes.NewReader(body))
 
 	for {
