@@ -160,9 +160,9 @@ func MirrorTo(seq int, to []string, headers []string, mirrorDiscard bool) {
 			}
 
 			if mirrorDiscard {
-				Putline("%d %s DISCARD\n", seq, strings.Join(mirrorTo, " "))
+				Putline("%d ADDHEADER \"%s\" %s DISCARD\n", seq, hdrs, strings.Join(mirrorTo, " "))
 			} else {
-				Putline("%d %s ADDHEADER \"%s\" OK\n", seq, strings.Join(mirrorTo, " "), hdrs)
+				Putline("%d ADDHEADER \"%s\" %s OK\n", seq, hdrs, strings.Join(mirrorTo, " "))
 			}
 
 		} else {
