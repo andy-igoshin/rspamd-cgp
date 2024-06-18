@@ -47,7 +47,8 @@ func AddHeader(seq int, headers []string) {
 	}
 }
 
-func Discard(seq int) {
+func Discard(seq int, qid int, from string, rcpts []string) {
+	Putline("* %d [%d]: Action: discard; from %s, rcpts %s\n", seq, qid, from, strings.Join(rcpts, ","))
 	Putline("%d DISCARD\n", seq)
 }
 
@@ -321,7 +322,7 @@ fin:
 	if err != nil {
 		Failure(seq, qid, err)
 	} else {
-		Discard(seq)
+		Discard(seq, qid, from, rcpts)
 	}
 }
 
