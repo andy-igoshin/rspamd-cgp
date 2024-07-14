@@ -2,7 +2,7 @@
     Rspamd helper for CommuniGate Pro 5.x, 6.x
 
     Copyright (C) 2017-2023 Andrey Igoshin <ai@vsu.ru>
-    Version 1.5.0
+    Version 1.5.6
 
     https://git.vsu.ru/ai/rspamd-cgp
 
