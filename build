@@ -10,6 +10,10 @@ if   [ "$1" == "fmt" ]; then
     go fmt $*
 elif [ "$1" == "tidy" ]; then
     go mod tidy
+elif [ "$1" == "update" ]; then
+    echo "update..."
+    go get -u ./...
+    go mod tidy
 elif [ "$1" == "vet" ]; then
     echo "vet..."
     go vet
