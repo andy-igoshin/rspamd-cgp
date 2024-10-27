@@ -16,7 +16,7 @@ elif [ "$1" == "update" ]; then
     go mod tidy
 elif [ "$1" == "vet" ]; then
     echo "vet..."
-    go vet
+    go vet ./...
 else
     go build
 fi
