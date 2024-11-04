@@ -12,11 +12,11 @@ import (
 	"git.vsu.ru/ai/rspamd-cgp/cgp"
 )
 
-type Operations struct {
+type Operation struct {
 	Discard    bool
+	MirrorTo   []string
 	NotifySelf bool
 	NotifyTo   []string
-	MirrorTo   []string
 }
 
 type Config struct {
@@ -24,8 +24,8 @@ type Config struct {
 	Debug      bool
 	Host       string        `default:"localhost:11333"`
 	Timeout    time.Duration `default:"15s"`
-	Actions    map[string]Operations
-	Symbols    map[string]Operations
+	Actions    map[string]Operation
+	Symbols    map[string]Operation
 }
 
 func New() *Config {
