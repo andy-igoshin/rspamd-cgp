@@ -33,7 +33,7 @@ func validateConfig(config *Config) (err error) {
 	return
 }
 
-func validateConfigEntry(entry map[string]Operations) (err error) {
+func validateConfigEntry(entry map[string]Operation) (err error) {
 
 	for e, op := range entry {
 
