@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"reflect"
 	"strconv"
-	"strings"
 
 	json "github.com/json-iterator/go"
 
@@ -22,44 +19,16 @@ const (
 	headerJunkR string = "X-Junk-Score: [XXXXXXXXXX]"
 )
 
-var authservId string
-var client *http.Client
-var mirrorDiscard bool
-var mirrorTo []string
-var host string
-var debug bool
-
-func init() {
-
-	config := config.New()
-
-	if config.AuthservId != "" {
-		authservId = config.AuthservId
-	} else {
-		authservId = cgp.MainDomain
-	}
-
-	mirrorDiscard = config.MirrorDiscard
-	mirrorTo = config.MirrorTo
-	host = "http://" + config.Host + "/checkv2"
-	debug = config.Debug
+func Scan(conf *config.Config, seq int, filename string) {
 
 	tr := &http.Transport{
 		DisableCompression: true,
 	}
 
-	client = &http.Client{
-		Timeout:   config.Timeout,
+	client := &http.Client{
+		Timeout:   conf.Timeout,
 		Transport: tr,
 	}
-}
-
-func printResponse(v any) {
-	printed, _ := json.MarshalIndent(v, "", "  ")
-	fmt.Fprintln(os.Stderr, string(printed))
-}
-
-func Scan(seq int, filename string) {
 
 	from, rcpts, auth, ip, qid, body, seen, err := cgp.Message(filename)
 	if err != nil {
@@ -72,13 +41,13 @@ func Scan(seq int, filename string) {
 		return
 	}
 
-	req, err := http.NewRequest("POST", host, bytes.NewReader(body))
+	req, err := http.NewRequest("POST", conf.Host, bytes.NewReader(body))
 	if err != nil {
 		cgp.Failure(seq, qid, err)
 		return
 	}
 
-	req.Header.Add("MTA-Tag", authservId)
+	req.Header.Add("MTA-Tag", conf.AuthservId)
 	req.Header.Add("User-Agent", "rspamd-cgp")
 	req.Header.Add("From", from)
 	req.Header.Add("Queue-ID", strconv.Itoa(qid))
@@ -111,34 +80,20 @@ func Scan(seq int, filename string) {
 		return
 	}
 
-	if debug {
+	if conf.Debug {
 		printResponse(res)
 	}
 
-	var headers []string
-
-	if _, ok := res["dkim-signature"]; ok {
-		headers = append(headers, strings.Join([]string{"DKIM-Signature: ", res["dkim-signature"].(string)}, ""))
-	}
-
-	if milter, ok := res["milter"]; ok {
-		if hdrs, ok := milter.(map[string]interface{})["add_headers"]; ok {
-			if reflect.TypeOf(hdrs).String() == "map[string]interface {}" {
-				for h, vh := range hdrs.(map[string]interface{}) {
-					if reflect.TypeOf(vh).String() == "map[string]interface {}" {
-						if v, ok := vh.(map[string]interface{})["value"].(string); ok && v != "" {
-							headers = append(headers, strings.Join([]string{h, v}, ": "))
-						}
-					}
-				}
-			}
-		}
-	}
-
-	action := res["action"]
+	action := res["action"].(string)
+	headers := makeHeaders(res)
+	opsum, casestr := makeOpSum(conf, res, action)
 
 	cgp.Putline("* %d [%d]: Action: %s; Score: %.2f/%.2f; Time elapsed: %.3fs\n",
 		seq, qid, action, res["score"], res["required_score"], res["time_real"])
+
+	if opsum != nil {
+		cgp.Putline("* %d [%d]: Case: %s\n", seq, qid, casestr)
+	}
 
 	switch action {
 	case "no action":
@@ -152,7 +107,7 @@ func Scan(seq int, filename string) {
 		cgp.Discard(seq, qid, from, rcpts)
 
 	case "quarantine":
-		cgp.MirrorTo(seq, qid, mirrorTo, append(headers, headerJunkR), body, mirrorDiscard)
+		//		cgp.MirrorTo(seq, qid, mirrorTo, append(headers, headerJunkR), body, mirrorDiscard)
 
 	case "reject":
 		cgp.AddHeader(seq, append(headers, headerJunkR))
