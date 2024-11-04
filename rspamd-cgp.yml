@@ -1,0 +1,30 @@
+authservid: relay1.vsu.ru
+debug: false
+host: 10.122.33.39:11333
+timeout: 15s
+
+actions:
+  discard:
+    discard: true
+    notifyself: false
+    notifyto: [qq@qq.q]
+    mirrorto: [aaa@bbb.ru, cc@dd.ru]
+
+symbols:
+  PRECEDENCE_BULK:
+    discard: false
+    notifyself: false
+    notifyto: [q1@q1.q1]
+    mirrorto: [aaa@bbb.ru, eee@fff.ru]
+
+  FUZZY_BLOCKED:
+    discard: true
+    notifyself: false
+    notifyto: []
+    mirrorto: [a1@bbb.ru, e1@fff.ru, aaa@bbb.ru]
+
+  TEST:
+    discard: false
+    notifyself: false
+    notifyto: []
+    mirrorto: [a1@bbb.ru]
