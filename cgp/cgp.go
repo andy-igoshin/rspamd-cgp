@@ -12,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"unicode"
+
+	"git.vsu.ru/ai/rspamd-cgp/utils"
 )
 
 const recvHdr = "Received:"
@@ -19,7 +21,6 @@ const seenHdr = "X-Rspamd-Seen:"
 const subjHdr = "Subject:"
 const submitDir = "Submitted"
 
-var MainDomain string
 var reMD *regexp.Regexp
 var reSELF *regexp.Regexp
 var reSMTP *regexp.Regexp
@@ -29,11 +30,6 @@ func init() {
 	reMD = regexp.MustCompile(`^\s+DomainName\s+=\s+([^;]+);`)
 	reSELF = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:DSN|GROUP|LIST|PBX|PIPE|RULE) \[0\.0\.0\.0\]`)
 	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTPU?|AIRSYNC|XIMSS|IMAP) \[([0-9a-f.:]+)\]`)
-
-	err := setMainDomain()
-	if err != nil {
-		Putline("* Can not detect Main Domain: %v\n", err)
-	}
 }
 
 func AddHeader(seq int, headers []string) {
@@ -60,6 +56,32 @@ func Failure(seq, qid int, err error) {
 func Intf(seq int, ver string) {
 	protocol, _ = strconv.Atoi(ver)
 	Putline("%d INTF %d\n", seq, protocol)
+}
+
+func MainDomain() (domain string, err error) {
+
+	h, err := os.Open("Settings/Main.settings")
+	if err != nil {
+		return
+	}
+	defer h.Close()
+
+	var line []byte
+
+	for m := bufio.NewReader(h); ; {
+
+		line, err = m.ReadSlice('\n')
+		if err != nil {
+			return
+		}
+
+		if s := reMD.FindAllStringSubmatch(string(line), -1); s != nil {
+			domain = s[0][1]
+			break
+		}
+	}
+
+	return
 }
 
 func Message(filename string) (from string, rcpts []string, auth string, ip string, qid int, body []byte, seen bool, err error) {
@@ -138,7 +160,7 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 		return
 	}
 
-	rcpts = uniqueNonEmptyElementsOf(rcpts)
+	rcpts = utils.UniqueSliceElementsNonEmpty(rcpts)
 
 	if from == "" || len(rcpts) == 0 || n < len(body) {
 		err = fmt.Errorf("cgp.Message() error: from='%s', len(to)=%d, auth='%s' ip='%s', size=%d/%d", from, len(rcpts), auth, ip, len(body), n)
@@ -533,47 +555,4 @@ func replaceSpecChars(msg string) string {
 	}
 
 	return sb.String()
-}
-
-func setMainDomain() (err error) {
-
-	h, err := os.Open("Settings/Main.settings")
-	if err != nil {
-		return
-	}
-	defer h.Close()
-
-	var line []byte
-
-	for m := bufio.NewReader(h); ; {
-
-		line, err = m.ReadSlice('\n')
-		if err != nil {
-			return
-		}
-
-		if s := reMD.FindAllStringSubmatch(string(line), -1); s != nil {
-			MainDomain = s[0][1]
-			break
-		}
-	}
-
-	return
-}
-
-func uniqueNonEmptyElementsOf(s []string) []string {
-
-	unique := make(map[string]bool, len(s))
-	us := make([]string, len(unique))
-
-	for _, elem := range s {
-		if len(elem) != 0 {
-			if !unique[elem] {
-				us = append(us, elem)
-				unique[elem] = true
-			}
-		}
-	}
-
-	return us
 }
