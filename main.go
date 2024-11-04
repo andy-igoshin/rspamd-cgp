@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"git.vsu.ru/ai/rspamd-cgp/cgp"
+	"git.vsu.ru/ai/rspamd-cgp/config"
 	"git.vsu.ru/ai/rspamd-cgp/rspamc"
 )
 
@@ -17,6 +18,8 @@ func main() {
 	var line []byte
 	var err error
 	var n int
+
+	config := config.New()
 
 	in := bufio.NewReader(os.Stdin)
 
@@ -36,7 +39,7 @@ finalize:
 
 		switch {
 		case cmd == "FILE" && n == 3:
-			go rspamc.Scan(seq, arg)
+			go rspamc.Scan(config, seq, arg)
 
 		case cmd == "INTF" && n == 3:
 			cgp.Intf(seq, arg)
