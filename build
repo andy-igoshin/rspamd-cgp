@@ -7,7 +7,9 @@ export GOPATH="${HOME}/src/rspamd-cgp"
 export CGO_ENABLED=0
 
 if   [ "$1" == "fmt" ]; then
-    go fmt $*
+    go fmt $2
+elif [ "$1" == "get" ]; then
+    go get $2
 elif [ "$1" == "tidy" ]; then
     go mod tidy
 elif [ "$1" == "update" ]; then
