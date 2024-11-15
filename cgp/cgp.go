@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -38,6 +39,46 @@ func AddHeader(seq int, headers []string) {
 	if protocol >= 4 {
 		Putline("%d ADDHEADER \"%s\" OK\n", seq, hdrs)
 	} else {
+		Putline("%d ADDHEADER \"%s\"\n", seq, hdrs)
+	}
+}
+
+func AddHeaderWithMirrorTo(seq int, qid int, to []string, discard bool, headers []string, body []byte) {
+
+	if protocol >= 4 {
+
+		if len(to) > 0 {
+
+			seenHdr, err := makeSeen(body)
+			if err != nil {
+				Failure(seq, qid, err)
+				return
+			}
+			headers = append(headers, seenHdr)
+			hdrs := replaceSpecChars(strings.Join(headers, "\n"))
+
+			mirrorTo := make([]string, 0, len(to))
+			for _, m := range to {
+				mirrorTo = append(mirrorTo, fmt.Sprintf("MIRRORTO \"%s\"", m))
+			}
+
+			if discard {
+				Putline("%d ADDHEADER \"%s\" %s DISCARD\n", seq, hdrs, strings.Join(mirrorTo, " "))
+			} else {
+				Putline("%d ADDHEADER \"%s\" %s OK\n", seq, hdrs, strings.Join(mirrorTo, " "))
+			}
+
+		} else {
+			hdrs := replaceSpecChars(strings.Join(headers, "\n"))
+			if discard {
+				Putline("%d ADDHEADER \"%s\" DISCARD\n", seq, hdrs)
+			} else {
+				Putline("%d ADDHEADER \"%s\" OK\n", seq, hdrs)
+			}
+		}
+
+	} else {
+		hdrs := replaceSpecChars(strings.Join(headers, "\n"))
 		Putline("%d ADDHEADER \"%s\"\n", seq, hdrs)
 	}
 }
@@ -168,43 +209,6 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 	return
 }
 
-func MirrorTo(seq int, qid int, to []string, headers []string, body []byte, mirrorDiscard bool) {
-
-	if protocol >= 4 {
-
-		if len(to) > 0 {
-
-			seenHdr, err := makeSeen(body)
-			if err != nil {
-				Failure(seq, qid, err)
-				return
-			}
-
-			headers = append(headers, seenHdr)
-			hdrs := replaceSpecChars(strings.Join(headers, "\n"))
-
-			mirrorTo := []string{}
-			for _, m := range to {
-				mirrorTo = append(mirrorTo, fmt.Sprintf("MIRRORTO \"%s\"", m))
-			}
-
-			if mirrorDiscard {
-				Putline("%d ADDHEADER \"%s\" %s DISCARD\n", seq, hdrs, strings.Join(mirrorTo, " "))
-			} else {
-				Putline("%d ADDHEADER \"%s\" %s OK\n", seq, hdrs, strings.Join(mirrorTo, " "))
-			}
-
-		} else {
-			hdrs := replaceSpecChars(strings.Join(headers, "\n"))
-			Putline("%d ADDHEADER \"%s\" OK\n", seq, hdrs)
-		}
-
-	} else {
-		hdrs := replaceSpecChars(strings.Join(headers, "\n"))
-		Putline("%d ADDHEADER \"%s\"\n", seq, hdrs)
-	}
-}
-
 func Ok(seq int) {
 	Putline("%d OK\n", seq)
 }
@@ -231,7 +235,7 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 	var m *bufio.Reader
 	var hdr string
 
-	filename := fmt.Sprintf("%s/%drs.sub", submitDir, qid)
+	filename := submitDir + "/" + strconv.Itoa(qid) + "rs.sub"
 	filetemp := strings.Replace(filename, "sub", "tmp", 1)
 
 	fh, err := os.Create(filetemp)
@@ -240,13 +244,13 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 	}
 	defer fh.Close()
 
-	_, err = fh.WriteString(strings.Join([]string{"Return-Path: ", from, "\n"}, ""))
+	_, err = fh.WriteString("Return-Path: " + from + "\n")
 	if err != nil {
 		goto fin
 	}
 
 	for _, rcpt := range rcpts {
-		_, err = fh.WriteString(strings.Join([]string{"Envelope-To: ", rcpt, "\n"}, ""))
+		_, err = fh.WriteString("Envelope-To: " + rcpt + "\n")
 		if err != nil {
 			goto fin
 		}
@@ -285,9 +289,10 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 
 		if firstRecv && strings.HasPrefix(hdr, recvHdr) {
 
-			sum := fmt.Sprintf("%x", sha256.Sum224([]byte(nospace(hdr))))
+			bs := sha256.Sum224([]byte(utils.NoSpace(hdr)))
+			sum := hex.EncodeToString(bs[:])
 
-			_, err = fh.WriteString(strings.Join([]string{seenHdr, " ", sum, "\n"}, ""))
+			_, err = fh.WriteString(seenHdr + " " + sum + "\n")
 			if err != nil {
 				goto fin
 			}
@@ -303,7 +308,7 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 
 		if strings.HasPrefix(hdr, subjHdr) {
 
-			_, err = fh.WriteString(strings.Join([]string{subjHdr, " ", subject, "\n"}, ""))
+			_, err = fh.WriteString(subjHdr + " " + subject + "\n")
 			if err != nil {
 				goto fin
 			}

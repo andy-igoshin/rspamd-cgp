@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"strings"
-	"unicode"
+
+	"git.vsu.ru/ai/rspamd-cgp/utils"
 )
 
 func getHeader(m *bufio.Reader) (hdr string, err error) {
@@ -124,7 +126,8 @@ func isSeen(m *bufio.Reader) (seen bool, err error) {
 
 		} else if strings.HasPrefix(hdr, recvHdr) {
 
-			sum := fmt.Sprintf("%x", sha256.Sum224([]byte(nospace(hdr))))
+			bs := sha256.Sum224([]byte(utils.NoSpace(hdr)))
+			sum := hex.EncodeToString(bs[:])
 			if seenSum == sum {
 				seen = true
 			}
@@ -160,26 +163,13 @@ func makeSeen(body []byte) (seenhdr string, err error) {
 		}
 
 		if strings.HasPrefix(hdr, recvHdr) {
-			seenhdr = fmt.Sprintf("%s %x", seenHdr, sha256.Sum224([]byte(nospace(hdr))))
+			bs := sha256.Sum224([]byte(utils.NoSpace(hdr)))
+			seenhdr = seenHdr + " " + hex.EncodeToString(bs[:])
 			break
 		}
 	}
 
 	return
-}
-
-func nospace(s string) string {
-
-	var b strings.Builder
-	b.Grow(len(s))
-
-	for _, c := range s {
-		if !unicode.IsSpace(c) {
-			b.WriteRune(c)
-		}
-	}
-
-	return b.String()
 }
 
 func replaceSpecChars(msg string) string {
