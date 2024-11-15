@@ -1,18 +1,54 @@
 package utils
 
-func UniqueSliceElementsNonEmpty[T ~string](inputSlice []T) []T {
+import (
+	"strings"
+	"unicode"
+)
 
-	uniqueSlice := make([]T, 0, len(inputSlice))
-	seen := make(map[T]bool, len(inputSlice))
+func DiffSlice[T comparable](s1, s2 []T) []T {
 
-	for _, element := range inputSlice {
-		if len(element) != 0 {
-			if !seen[element] {
-				uniqueSlice = append(uniqueSlice, element)
-				seen[element] = true
+	s2m := make(map[T]bool, len(s2))
+	for _, v := range s2 {
+		s2m[v] = true
+	}
+
+	var diff []T
+	for _, v := range s1 {
+		if _, found := s2m[v]; !found {
+			diff = append(diff, v)
+		}
+	}
+
+	return diff
+}
+
+func NoSpace(s string) string {
+
+	var b strings.Builder
+	b.Grow(len(s))
+
+	for _, c := range s {
+		if !unicode.IsSpace(c) {
+			b.WriteRune(c)
+		}
+	}
+
+	return b.String()
+}
+
+func UniqueSliceElementsNonEmpty[T ~string](s []T) []T {
+
+	unique := make([]T, 0, len(s))
+	seen := make(map[T]bool, len(s))
+
+	for _, e := range s {
+		if len(e) > 0 {
+			if !seen[e] {
+				unique = append(unique, e)
+				seen[e] = true
 			}
 		}
 	}
 
-	return uniqueSlice
+	return unique
 }
