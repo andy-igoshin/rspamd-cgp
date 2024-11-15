@@ -13,10 +13,11 @@ import (
 )
 
 type Operation struct {
-	Discard    bool
-	MirrorTo   []string
-	NotifySelf bool
-	NotifyTo   []string
+	Description string
+	Discard     bool
+	MirrorTo    []string
+	NotifySelf  bool
+	NotifyTo    []string
 }
 
 type Config struct {
@@ -24,6 +25,7 @@ type Config struct {
 	Debug      bool
 	Host       string        `default:"localhost:11333"`
 	Timeout    time.Duration `default:"15s"`
+	NotifyFrom string        `required:"true"`
 	Actions    map[string]Operation
 	Symbols    map[string]Operation
 }

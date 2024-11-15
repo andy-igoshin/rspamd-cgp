@@ -22,6 +22,10 @@ func validateConfig(config *Config) (err error) {
 
 	reMail = regexp.MustCompile(`^\S+?@\S+$`)
 
+	if err = validateConfigOp(config.NotifyFrom); err != nil {
+		return
+	}
+
 	if err = validateConfigEntry(config.Actions); err != nil {
 		return
 	}
@@ -37,12 +41,12 @@ func validateConfigEntry(entry map[string]Operation) (err error) {
 
 	for e, op := range entry {
 
-		if err = validateConfigOp(op.NotifyTo); err != nil {
+		if err = validateConfigOps(op.NotifyTo); err != nil {
 			err = fmt.Errorf("%s: NotifyTo: %v", e, err)
 			break
 		}
 
-		if err = validateConfigOp(op.MirrorTo); err != nil {
+		if err = validateConfigOps(op.MirrorTo); err != nil {
 			err = fmt.Errorf("%s: MirrorTo: %v", e, err)
 			break
 		}
@@ -51,10 +55,19 @@ func validateConfigEntry(entry map[string]Operation) (err error) {
 	return
 }
 
-func validateConfigOp(mail []string) (err error) {
+func validateConfigOp(m string) (err error) {
+
+	if !reMail.MatchString(m) {
+		err = fmt.Errorf("invalid mail: %s", m)
+	}
+
+	return
+}
+
+func validateConfigOps(mail []string) (err error) {
 
 	for _, m := range mail {
-		if !reMail.MatchString(m) {
+		if err = validateConfigOp(m); err != nil {
 			err = fmt.Errorf("invalid mail: %s", m)
 			break
 		}
