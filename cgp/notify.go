@@ -17,7 +17,7 @@ func NotifyTo(seq int, qid int, to []string, self bool, header string,
 	off := bytes.Index(body, []byte("\n\n"))
 
 	var sb strings.Builder
-	sb.Grow(2048+off)
+	sb.Grow(2048 + off)
 
 	sb.WriteString("Return-Path: <>\n")
 	for _, rcpt := range to {
@@ -79,5 +79,10 @@ func NotifyTo(seq int, qid int, to []string, self bool, header string,
 		goto fin
 	}
 
+	err = os.Rename(filetemp, filename)
+
 fin:
+	if err != nil {
+		Putline("* %d [%d]: notify: %s\n", seq, qid, err)
+	}
 }
