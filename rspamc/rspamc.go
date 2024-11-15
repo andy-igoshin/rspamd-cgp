@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	headerCase  string = "X-Rspamd-Case: "
 	headerJunkG string = "X-Junk-Score: [XX]"
 	headerJunkA string = "X-Junk-Score: [XXXX]"
 	headerJunkR string = "X-Junk-Score: [XXXXXXXXXX]"
@@ -86,46 +87,46 @@ func Scan(conf *config.Config, seq int, filename string) {
 
 	action := res["action"].(string)
 	headers := makeHeaders(res)
-	opsum, casestr := makeOpSum(conf, res, action)
+	opsum, caseinfo, casework, desc := makeOpSum(conf, res, action)
 
 	cgp.Putline("* %d [%d]: Action: %s; Score: %.2f/%.2f; Time elapsed: %.3fs\n",
 		seq, qid, action, res["score"], res["required_score"], res["time_real"])
 
+	var hci string
+
 	if opsum != nil {
-		cgp.Putline("* %d [%d]: Case: %s\n", seq, qid, casestr)
+		cgp.Putline("* %d [%d]: Case: %s; %s\n", seq, qid, caseinfo, casework)
+		hci = headerCase+caseinfo
+		headers = append(headers, hci)
 	}
 
 	switch action {
 	case "no action":
-		if len(headers) > 0 {
-			cgp.AddHeader(seq, headers)
-		} else {
-			cgp.Ok(seq)
-		}
+		procAction(seq, qid, opsum, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, 0)
 
 	case "discard":
-		cgp.Discard(seq, qid, from, rcpts)
+		procAction(seq, qid, opsum, append(headers, headerJunkR), hci, from, rcpts, body, conf.NotifyFrom, desc, 2)
 
 	case "quarantine":
-		//		cgp.MirrorTo(seq, qid, mirrorTo, append(headers, headerJunkR), body, mirrorDiscard)
-
+		fallthrough
 	case "reject":
-		cgp.AddHeader(seq, append(headers, headerJunkR))
+		procAction(seq, qid, opsum, append(headers, headerJunkR), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
 
 	case "rewrite subject":
+		headers = append(headers, headerJunkA)
 		if subject, ok := res["subject"]; ok {
-			cgp.RewriteSubject(seq, append(headers, headerJunkA), subject.(string), qid, from, rcpts, body)
+			cgp.RewriteSubject(seq, headers, subject.(string), qid, from, rcpts, body)
 		} else {
-			cgp.AddHeader(seq, append(headers, headerJunkA))
+			cgp.AddHeader(seq, headers)
 		}
 
 	case "add header":
-		cgp.AddHeader(seq, append(headers, headerJunkA))
+		procAction(seq, qid, opsum, append(headers, headerJunkA), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
 
 	case "greylist":
 		fallthrough
 	case "soft reject":
-		cgp.AddHeader(seq, append(headers, headerJunkG))
+		procAction(seq, qid, opsum, append(headers, headerJunkG), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
 
 	default:
 		cgp.Failure(seq, qid, fmt.Errorf("Unknown action: %v", action))
