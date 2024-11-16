@@ -1,30 +1,33 @@
 authservid: relay1.vsu.ru
 debug: false
-host: 10.122.33.39:11333
+host: 127.0.0.1:11333
 timeout: 15s
+notifyfrom: rspamd-cgp-notify@qqq.ru
 
 actions:
   discard:
     discard: true
     notifyself: false
-    notifyto: [qq@qq.q]
+    notifyto: []
     mirrorto: [aaa@bbb.ru, cc@dd.ru]
 
 symbols:
   PRECEDENCE_BULK:
+    description: прецеденце булк
     discard: false
     notifyself: false
-    notifyto: [q1@q1.q1]
+    notifyto: [an@nn.n, eeen@fff.ru]
     mirrorto: [aaa@bbb.ru, eee@fff.ru]
 
   FUZZY_BLOCKED:
+    description: фуззи блокед
     discard: true
     notifyself: false
-    notifyto: []
-    mirrorto: [a1@bbb.ru, e1@fff.ru, aaa@bbb.ru]
+    notifyto: [bn@nnn.nn, cn@nnnn.nnn, eeen@fff.ru]
+    mirrorto: [a1@bbb.ru, e1@fff.ru, aaa@bbb.ru, eee@fff.ru]
 
   TEST:
     discard: false
     notifyself: false
     notifyto: []
-    mirrorto: [a1@bbb.ru]
+    mirrorto: [a1@bbb.ru, e1@fff.ru]
