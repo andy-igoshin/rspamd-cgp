@@ -45,21 +45,20 @@ func AddHeader(seq int, headers []string) {
 
 func AddHeaderWithMirrorTo(seq int, qid int, to []string, discard bool, headers []string, body []byte) {
 
+	seenHdr, err := makeSeen(body)
+	if err != nil {
+		Failure(seq, qid, err)
+		return
+	}
+	headers = append(headers, seenHdr)
+	hdrs := replaceSpecChars(strings.Join(headers, "\n"))
+
 	if protocol >= 4 {
 
 		if len(to) > 0 {
-
-			seenHdr, err := makeSeen(body)
-			if err != nil {
-				Failure(seq, qid, err)
-				return
-			}
-			headers = append(headers, seenHdr)
-			hdrs := replaceSpecChars(strings.Join(headers, "\n"))
-
 			mirrorTo := make([]string, 0, len(to))
 			for _, m := range to {
-				mirrorTo = append(mirrorTo, fmt.Sprintf("MIRRORTO \"%s\"", m))
+				mirrorTo = append(mirrorTo, "MIRRORTO \""+m+"\"")
 			}
 
 			if discard {
@@ -69,7 +68,6 @@ func AddHeaderWithMirrorTo(seq int, qid int, to []string, discard bool, headers 
 			}
 
 		} else {
-			hdrs := replaceSpecChars(strings.Join(headers, "\n"))
 			if discard {
 				Putline("%d ADDHEADER \"%s\" DISCARD\n", seq, hdrs)
 			} else {
@@ -78,7 +76,6 @@ func AddHeaderWithMirrorTo(seq int, qid int, to []string, discard bool, headers 
 		}
 
 	} else {
-		hdrs := replaceSpecChars(strings.Join(headers, "\n"))
 		Putline("%d ADDHEADER \"%s\"\n", seq, hdrs)
 	}
 }
@@ -227,13 +224,12 @@ func Reject(seq int) {
 	Putline("%d REJECT Try again later\n", seq)
 }
 
-func RewriteSubject(seq int, headers []string, subject string, qid int, from string, rcpts []string, body []byte) {
+func RewriteSubject(seq int, headers []string, subject string, qid int, from string, rcpts []string, body []byte) (err error) {
 
-	var err error
 	var firstRecv bool = true
-	var line []byte
 	var m *bufio.Reader
 	var hdr string
+	var pos int = 0
 
 	filename := submitDir + "/" + strconv.Itoa(qid) + "rs.sub"
 	filetemp := strings.Replace(filename, "sub", "tmp", 1)
@@ -256,11 +252,9 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 		}
 	}
 
-	for _, hdr = range headers {
-		_, err = fh.WriteString(hdr)
-		if err != nil {
-			goto fin
-		}
+	_, err = fh.WriteString(strings.Join(headers, "\n") + "\n")
+	if err != nil {
+		goto fin
 	}
 
 	m = bufio.NewReader(bytes.NewReader(body))
@@ -278,8 +272,10 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 			goto fin
 		}
 
+		pos += len(hdr)
+
 		if hdr == "\n" {
-			// конец заголовка
+			// конец RFC5322 заголовка
 			_, err = fh.WriteString(hdr)
 			if err != nil {
 				goto fin
@@ -322,20 +318,9 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 		}
 	}
 
-	for {
-		line, err = m.ReadSlice('\n')
-		if err == io.EOF {
-			err = nil
-			break
-		}
-		if err != nil {
-			goto fin
-		}
-
-		_, err = fh.Write(line)
-		if err != nil {
-			goto fin
-		}
+	_, err = fh.Write(body[pos:])
+	if err != nil {
+		goto fin
 	}
 
 	if err = fh.Close(); err != nil {
@@ -345,9 +330,5 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 	err = os.Rename(filetemp, filename)
 
 fin:
-	if err != nil {
-		Failure(seq, qid, err)
-	} else {
-		Discard(seq, qid, from, rcpts)
-	}
+	return
 }

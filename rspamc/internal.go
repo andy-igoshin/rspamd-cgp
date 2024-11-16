@@ -78,21 +78,21 @@ func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (
 		var sb strings.Builder
 		sb.Grow(256)
 
-		sb.WriteString("Discard: ")
+		sb.WriteString("discard ")
 		sb.WriteString(strconv.FormatBool(opsum.Discard))
 
-		sb.WriteString("; NotifySelf: ")
+		sb.WriteString("; notifyself ")
 		sb.WriteString(strconv.FormatBool(opsum.NotifySelf))
 
 		if len(opsum.MirrorTo) > 0 {
 			opsum.MirrorTo = utils.UniqueSliceElementsNonEmpty(opsum.MirrorTo)
-			sb.WriteString("; MirrorTo: ")
+			sb.WriteString("; mirrorto ")
 			sb.WriteString(strings.Join(opsum.MirrorTo, ","))
 		}
 
 		if len(opsum.NotifyTo) > 0 {
 			opsum.NotifyTo = utils.UniqueSliceElementsNonEmpty(opsum.NotifyTo)
-			sb.WriteString("; NotifyTo: ")
+			sb.WriteString("; notifyto ")
 			sb.WriteString(strings.Join(opsum.NotifyTo, ","))
 		}
 
@@ -145,6 +145,34 @@ func procAction(seq int, qid int, opsum *config.Operation, headers []string, hci
 			cgp.AddHeader(seq, headers)
 
 		case 2:
+			cgp.Discard(seq, qid, from, rcpts)
+		}
+	}
+}
+
+func procActionRS(seq int, qid int, opsum *config.Operation, headers []string, hci string, subject string,
+	from string, rcpts []string, body []byte, notifyfrom string, desc string) {
+
+	err := cgp.RewriteSubject(seq, headers, subject, qid, from, rcpts, body)
+	if err != nil {
+		cgp.Failure(seq, qid, err)
+	} else {
+
+		if opsum != nil {
+			cgp.AddHeaderWithMirrorTo(seq, qid, opsum.MirrorTo, opsum.Discard, headers, body)
+			if len(opsum.NotifyTo) > 0 || opsum.NotifySelf {
+				if opsum.NotifySelf {
+					to := make([]string, 0, len(opsum.NotifyTo)+len(rcpts))
+					to = append(to, opsum.NotifyTo...)
+					to = append(to, rcpts...)
+					to = utils.UniqueSliceElementsNonEmpty(to)
+					cgp.NotifyTo(seq, qid, to, opsum.NotifySelf, hci, from, rcpts, body, notifyfrom, desc)
+				} else {
+					cgp.NotifyTo(seq, qid, opsum.NotifyTo, opsum.NotifySelf, hci, from, rcpts, body, notifyfrom, desc)
+				}
+			}
+
+		} else {
 			cgp.Discard(seq, qid, from, rcpts)
 		}
 	}

@@ -96,7 +96,7 @@ func Scan(conf *config.Config, seq int, filename string) {
 
 	if opsum != nil {
 		cgp.Putline("* %d [%d]: Case: %s; %s\n", seq, qid, caseinfo, casework)
-		hci = headerCase+caseinfo
+		hci = headerCase + caseinfo
 		headers = append(headers, hci)
 	}
 
@@ -113,11 +113,10 @@ func Scan(conf *config.Config, seq int, filename string) {
 		procAction(seq, qid, opsum, append(headers, headerJunkR), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
 
 	case "rewrite subject":
-		headers = append(headers, headerJunkA)
 		if subject, ok := res["subject"]; ok {
-			cgp.RewriteSubject(seq, headers, subject.(string), qid, from, rcpts, body)
+			procActionRS(seq, qid, opsum, append(headers, headerJunkA), hci, subject.(string), from, rcpts, body, conf.NotifyFrom, desc)
 		} else {
-			cgp.AddHeader(seq, headers)
+			procAction(seq, qid, opsum, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
 		}
 
 	case "add header":
