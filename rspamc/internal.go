@@ -58,7 +58,7 @@ func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (
 	}
 
 	for symbol, op := range conf.Symbols {
-		if _, ok := res["symbols"].(map[string]interface{})[symbol]; ok {
+		if v, ok := res["symbols"].(map[string]interface{})[symbol]; ok {
 			opsum.Discard = opsum.Discard || op.Discard
 			opsum.MirrorTo = append(opsum.MirrorTo, op.MirrorTo...)
 			opsum.NotifySelf = opsum.NotifySelf || op.NotifySelf
@@ -68,7 +68,11 @@ func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (
 			if len(op.Description) > 0 {
 				desca = append(desca, symbol+": "+op.Description)
 			} else {
-				desca = append(desca, symbol)
+				if desc, ok := v.(map[string]interface{})["description"]; ok {
+					desca = append(desca, symbol+": "+desc.(string))
+				} else {
+					desca = append(desca, symbol)
+				}
 			}
 		}
 	}
@@ -100,6 +104,14 @@ func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (
 	}
 
 	return nil, "", "", ""
+}
+
+func printAuth(auth string) {
+	if len(auth) > 0 {
+		fmt.Fprintln(os.Stderr, "message authenticated as "+auth+"\n")
+	} else {
+		fmt.Fprintln(os.Stderr, "message not authenticated\n")
+	}
 }
 
 func printResponse(v any) {
