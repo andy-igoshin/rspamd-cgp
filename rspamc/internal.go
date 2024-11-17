@@ -14,6 +14,26 @@ import (
 	"git.vsu.ru/ai/rspamd-cgp/utils"
 )
 
+func filterLocalRcpts(rcpts []string, res map[string]interface{}) []string {
+
+	filtered := make([]string, 0, len(rcpts))
+
+	if v, ok := res["symbols"].(map[string]interface{})["RCPTS_DOMAINS_LOCAL"]; ok {
+		if domains, ok := v.(map[string]interface{})["options"]; ok {
+			for _, rcpt := range rcpts {
+				for _, domain := range domains.([]interface{}) {
+					if rcpt[strings.IndexByte(rcpt, '@')+1:len(rcpt)-1] == domain.(string) {
+						filtered = append(filtered, rcpt)
+						break
+					}
+				}
+			}
+		}
+	}
+
+	return filtered
+}
+
 func makeHeaders(res map[string]interface{}) (headers []string) {
 
 	if _, ok := res["dkim-signature"]; ok {
@@ -46,7 +66,7 @@ func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (
 	if op, ok := conf.Actions[action]; ok {
 		opsum.Discard = op.Discard
 		opsum.MirrorTo = op.MirrorTo
-		opsum.NotifySelf = op.NotifySelf
+		opsum.NotifyRcpts = op.NotifyRcpts
 		opsum.NotifyTo = op.NotifyTo
 		casea = append(casea, action)
 
@@ -61,7 +81,7 @@ func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (
 		if v, ok := res["symbols"].(map[string]interface{})[symbol]; ok {
 			opsum.Discard = opsum.Discard || op.Discard
 			opsum.MirrorTo = append(opsum.MirrorTo, op.MirrorTo...)
-			opsum.NotifySelf = opsum.NotifySelf || op.NotifySelf
+			opsum.NotifyRcpts = opsum.NotifyRcpts || op.NotifyRcpts
 			opsum.NotifyTo = append(opsum.NotifyTo, op.NotifyTo...)
 			casea = append(casea, symbol)
 
@@ -85,8 +105,8 @@ func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (
 		sb.WriteString("discard ")
 		sb.WriteString(strconv.FormatBool(opsum.Discard))
 
-		sb.WriteString("; notifyself ")
-		sb.WriteString(strconv.FormatBool(opsum.NotifySelf))
+		sb.WriteString("; notifyrcpts ")
+		sb.WriteString(strconv.FormatBool(opsum.NotifyRcpts))
 
 		if len(opsum.MirrorTo) > 0 {
 			opsum.MirrorTo = utils.UniqueSliceElementsNonEmpty(opsum.MirrorTo)
@@ -119,8 +139,8 @@ func printResponse(v any) {
 	fmt.Fprintln(os.Stderr, string(printed))
 }
 
-func procAction(seq int, qid int, opsum *config.Operation, headers []string, hci string,
-	from string, rcpts []string, body []byte, notifyfrom string, desc string, t int) {
+func procAction(seq int, qid int, opsum *config.Operation, res map[string]interface{}, headers []string,
+	hci string, from string, rcpts []string, body []byte, notifyfrom string, desc string, t int) {
 
 	if opsum != nil {
 
@@ -131,15 +151,16 @@ func procAction(seq int, qid int, opsum *config.Operation, headers []string, hci
 			cgp.AddHeaderWithMirrorTo(seq, qid, to, opsum.Discard, headers, body)
 		}
 
-		if len(opsum.NotifyTo) > 0 || opsum.NotifySelf {
-			if opsum.NotifySelf {
+		if len(opsum.NotifyTo) > 0 || opsum.NotifyRcpts {
+			if opsum.NotifyRcpts {
 				to := make([]string, 0, len(opsum.NotifyTo)+len(rcpts))
 				to = append(to, opsum.NotifyTo...)
-				to = append(to, rcpts...)
+				rcpts_filtered := filterLocalRcpts(rcpts, res)
+				to = append(to, rcpts_filtered...)
 				to = utils.UniqueSliceElementsNonEmpty(to)
-				cgp.NotifyTo(seq, qid, to, opsum.NotifySelf, hci, from, rcpts, body, notifyfrom, desc)
+				cgp.NotifyTo(seq, qid, to, hci, from, rcpts, body, notifyfrom, desc)
 			} else {
-				cgp.NotifyTo(seq, qid, opsum.NotifyTo, opsum.NotifySelf, hci, from, rcpts, body, notifyfrom, desc)
+				cgp.NotifyTo(seq, qid, opsum.NotifyTo, hci, from, rcpts, body, notifyfrom, desc)
 			}
 		}
 
@@ -162,8 +183,8 @@ func procAction(seq int, qid int, opsum *config.Operation, headers []string, hci
 	}
 }
 
-func procActionRS(seq int, qid int, opsum *config.Operation, headers []string, hci string, subject string,
-	from string, rcpts []string, body []byte, notifyfrom string, desc string) {
+func procActionRS(seq int, qid int, opsum *config.Operation, res map[string]interface{}, headers []string,
+	hci string, subject string, from string, rcpts []string, body []byte, notifyfrom string, desc string) {
 
 	err := cgp.RewriteSubject(seq, headers, subject, qid, from, rcpts, body)
 	if err != nil {
@@ -172,15 +193,16 @@ func procActionRS(seq int, qid int, opsum *config.Operation, headers []string, h
 
 		if opsum != nil {
 			cgp.AddHeaderWithMirrorTo(seq, qid, opsum.MirrorTo, opsum.Discard, headers, body)
-			if len(opsum.NotifyTo) > 0 || opsum.NotifySelf {
-				if opsum.NotifySelf {
+			if len(opsum.NotifyTo) > 0 || opsum.NotifyRcpts {
+				if opsum.NotifyRcpts {
 					to := make([]string, 0, len(opsum.NotifyTo)+len(rcpts))
 					to = append(to, opsum.NotifyTo...)
-					to = append(to, rcpts...)
+					rcpts_filtered := filterLocalRcpts(rcpts, res)
+					to = append(to, rcpts_filtered...)
 					to = utils.UniqueSliceElementsNonEmpty(to)
-					cgp.NotifyTo(seq, qid, to, opsum.NotifySelf, hci, from, rcpts, body, notifyfrom, desc)
+					cgp.NotifyTo(seq, qid, to, hci, from, rcpts, body, notifyfrom, desc)
 				} else {
-					cgp.NotifyTo(seq, qid, opsum.NotifyTo, opsum.NotifySelf, hci, from, rcpts, body, notifyfrom, desc)
+					cgp.NotifyTo(seq, qid, opsum.NotifyTo, hci, from, rcpts, body, notifyfrom, desc)
 				}
 			}
 

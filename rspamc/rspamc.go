@@ -103,30 +103,30 @@ func Scan(conf *config.Config, seq int, filename string) {
 
 	switch action {
 	case "no action":
-		procAction(seq, qid, opsum, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, 0)
+		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, 0)
 
 	case "discard":
-		procAction(seq, qid, opsum, append(headers, headerJunkR), hci, from, rcpts, body, conf.NotifyFrom, desc, 2)
+		procAction(seq, qid, opsum, res, append(headers, headerJunkR), hci, from, rcpts, body, conf.NotifyFrom, desc, 2)
 
 	case "quarantine":
 		fallthrough
 	case "reject":
-		procAction(seq, qid, opsum, append(headers, headerJunkR), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
+		procAction(seq, qid, opsum, res, append(headers, headerJunkR), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
 
 	case "rewrite subject":
 		if subject, ok := res["subject"]; ok {
-			procActionRS(seq, qid, opsum, append(headers, headerJunkA), hci, subject.(string), from, rcpts, body, conf.NotifyFrom, desc)
+			procActionRS(seq, qid, opsum, res, append(headers, headerJunkA), hci, subject.(string), from, rcpts, body, conf.NotifyFrom, desc)
 		} else {
-			procAction(seq, qid, opsum, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
+			procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
 		}
 
 	case "add header":
-		procAction(seq, qid, opsum, append(headers, headerJunkA), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
+		procAction(seq, qid, opsum, res, append(headers, headerJunkA), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
 
 	case "greylist":
 		fallthrough
 	case "soft reject":
-		procAction(seq, qid, opsum, append(headers, headerJunkG), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
+		procAction(seq, qid, opsum, res, append(headers, headerJunkG), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
 
 	default:
 		cgp.Failure(seq, qid, fmt.Errorf("Unknown action: %v", action))
