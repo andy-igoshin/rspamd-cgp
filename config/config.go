@@ -16,7 +16,7 @@ type Operation struct {
 	Description string
 	Discard     bool
 	MirrorTo    []string
-	NotifySelf  bool
+	NotifyRcpts bool
 	NotifyTo    []string
 }
 
