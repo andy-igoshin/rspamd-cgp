@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-func NotifyTo(seq int, qid int, to []string, self bool, header string,
-	from string, rcpts []string, body []byte, notifyfrom string, desc string) {
+func NotifyTo(seq int, qid int, to []string, header string, from string, rcpts []string,
+	body []byte, notifyfrom string, desc string) {
 
 	date := time.Now().Format(time.RFC1123Z)
 	mailid := strconv.Itoa(qid)
