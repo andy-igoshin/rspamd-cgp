@@ -166,7 +166,6 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 				auth = s[0][1]
 				ip = s[0][2]
 			} else if s := reSELF.FindAllStringSubmatch(string(line), -1); s != nil {
-				auth = s[0][1]
 				if len(s[0][1]) > 0 {
 					auth = s[0][1]
 				} else {
