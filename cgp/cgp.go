@@ -28,7 +28,7 @@ var protocol int
 
 func init() {
 	reMD = regexp.MustCompile(`^\s+DomainName\s+=\s+([^;]+);`)
-	reSELF = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:DSN|GROUP|LIST|PBX|PIPE|RULE) \[0\.0\.0\.0\]`)
+	reSELF = regexp.MustCompile(`^S (?:<([^>]+)> )?(DSN|GROUP|LIST|LSTM|MDN|PBX|PIPE|RULE) \[0\.0\.0\.0\]`)
 	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTPU?|AIRSYNC|XIMSS|IMAP) \[([0-9a-f.:]+)\]`)
 }
 
@@ -167,6 +167,11 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 				ip = s[0][2]
 			} else if s := reSELF.FindAllStringSubmatch(string(line), -1); s != nil {
 				auth = s[0][1]
+				if len(s[0][1]) > 0 {
+					auth = s[0][1]
+				} else {
+					auth = s[0][2] + "@trusted"
+				}
 				ip = "127.2.4.7"
 			}
 		}
