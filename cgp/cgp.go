@@ -28,7 +28,7 @@ var protocol int
 
 func init() {
 	reMD = regexp.MustCompile(`^\s+DomainName\s+=\s+([^;]+);`)
-	reSELF = regexp.MustCompile(`^S (?:<([^>]+)> )?(DSN|GROUP|LIST|LSTM|MDN|PBX|PIPE|RULE) \[0\.0\.0\.0\]`)
+	reSELF = regexp.MustCompile(`^S (?:<([^>]+)> )?(ALARM|DSN|GROUP|LIST|LSTM|LSTO|MDN|PBX|PIPE|RULE) \[0\.0\.0\.0\]`)
 	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTPU?|AIRSYNC|XIMSS|IMAP) \[([0-9a-f.:]+)\]`)
 }
 
