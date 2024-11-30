@@ -29,7 +29,7 @@ var protocol int
 func init() {
 	reMD = regexp.MustCompile(`^\s+DomainName\s+=\s+([^;]+);`)
 	reSELF = regexp.MustCompile(`^S (?:<([^>]+)> )?(ALARM|DSN|GROUP|LIST|LSTM|LSTO|MDN|PBX|PIPE|RULE|WEBUSER) \[0\.0\.0\.0\]`)
-	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(SMTP|HTTPU?|AIRSYNC|IMAP|RPOP|XIMSS) \[([0-9a-f.:]+)\]`)
+	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTPU?|AIRSYNC|IMAP|RPOP|XIMSS) \[([0-9a-f.:]+)\]`)
 }
 
 func AddHeader(seq int, headers []string) {
@@ -163,12 +163,8 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 
 		case 'S':
 			if s := reSMTP.FindAllStringSubmatch(string(line), -1); s != nil {
-				if len(s[0][1]) > 0 {
-					auth = s[0][1]
-				} else if s[0][2] == "RPOP" {
-					auth = s[0][2] + "@trusted"
-				}
-				ip = s[0][3]
+				auth = s[0][1]
+				ip = s[0][2]
 			} else if s := reSELF.FindAllStringSubmatch(string(line), -1); s != nil {
 				if len(s[0][1]) > 0 {
 					auth = s[0][1]
