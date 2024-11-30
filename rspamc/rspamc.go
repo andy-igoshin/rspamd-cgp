@@ -82,7 +82,7 @@ func Scan(conf *config.Config, seq int, filename string) {
 	}
 
 	if conf.Debug {
-		printAuth(auth)
+		printMsg(from, rcpts, auth, ip, qid, seen)
 		printResponse(res)
 	}
 

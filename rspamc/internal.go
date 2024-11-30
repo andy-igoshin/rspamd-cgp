@@ -126,12 +126,17 @@ func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (
 	return nil, "", "", ""
 }
 
-func printAuth(auth string) {
+func printMsg(from string, rcpts []string, auth string, ip string, qid int, seen bool) {
+	fmt.Fprintln(os.Stderr, "from: ", from)
+	fmt.Fprintln(os.Stderr, "rcpts:", rcpts)
+	fmt.Fprintln(os.Stderr, "ip:   ", ip)
+	fmt.Fprintln(os.Stderr, "qid:  ", qid)
 	if len(auth) > 0 {
-		fmt.Fprintln(os.Stderr, "message authenticated as "+auth+"\n")
+		fmt.Fprintln(os.Stderr, "auth: ", auth)
 	} else {
-		fmt.Fprintln(os.Stderr, "message not authenticated\n")
+		fmt.Fprintln(os.Stderr, "auth:  not authenticated")
 	}
+	fmt.Fprintln(os.Stderr, "")
 }
 
 func printResponse(v any) {
