@@ -1,33 +1,69 @@
-authservid: relay1.vsu.ru
-debug: false
+################################################################################
+# rspamd-cgp config file
+################################################################################
+
+################################################################################
+# Устанавливает значение authserv-id в заголовке Authentication-Results, RFC7001
+# Если не задан, ему присваивается имя главного домена CommuniGate Pro.
+#
+#authservid: mx.domain.ru
+
+################################################################################
+# ПРИМЕНЯТЬ ТОЛЬКО ДЛЯ ЗАПУСКА ИЗ КОМАНДНОЙ СТРОКИ!!!
+# Выводит в форматированном виде ответ Rspamd (JSON). Может быть использован для
+# контроля возвращаемых Rspamd SYMBOLs и других данных.
+# Входной файл должен быть в формате файла очереди CommuniGate Pro.
+#
+#debug: false
+
+################################################################################
+# Адрес хоста и порт Rspamd, тайм-аут.
+#
 host: 127.0.0.1:11333
 timeout: 15s
-notifyfrom: rspamd-cgp-notify@qqq.ru
 
+################################################################################
+# Устанавливает значение заголовка From: в оповещениях.
+#
+notifyfrom: rspamd-cgp-notify@domain.ru
+
+################################################################################
+# Секция описывает действия (actions) и дополнительную обработку для каждого
+# действия. Здесь указываются действия, которым нужна дополнительная обработка.
+#
+# discard:                              # название действия
+#   description: "discard action"       # короткое описание действия
+#   discard: true                       # доставить сообщение или выбросить
+#   notifyrcpts: false                  # оповещать ли получателей сообщения
+#   notifyto: []                        # список получателей оповещения
+#   mirrorto: [aa@ba.ru, cc@dd.ru]      # список получателей копии сообщения
+#
 actions:
   discard:
+    description: "discard action"
     discard: true
-    notifyself: false
+    notifyrcpts: false
     notifyto: []
-    mirrorto: [aaa@bbb.ru, cc@dd.ru]
+    mirrorto: [a@b.r, c@d.r]
 
+################################################################################
+# Секция описывает символы (SYMBOLs) и дополнительную обработку для каждого
+# символа. Здесь указываются символы, которым нужна дополнительная обработка.
+#
+# FAKE_LOCAL_FROM:                      # название символа
+#   description: ""                     # по умолчанию берётся из ответа Rspamd
+#   discard: true                       # доставить сообщение или выбросить
+#   notifyrcpts: false                  # оповещать ли получателей сообщения
+#   notifyto: []                        # список получателей оповещения
+#   mirrorto: [aa@ba.ru, cc@dd.ru]      # список получателей копии сообщения
+#
 symbols:
-  PRECEDENCE_BULK:
-    description: прецеденце булк
-    discard: false
-    notifyself: false
-    notifyto: [an@nn.n, eeen@fff.ru]
-    mirrorto: [aaa@bbb.ru, eee@fff.ru]
-
-  FUZZY_BLOCKED:
-    description: фуззи блокед
+  FAKE_LOCAL_FROM:
     discard: true
-    notifyself: false
-    notifyto: [bn@nnn.nn, cn@nnnn.nnn, eeen@fff.ru]
-    mirrorto: [a1@bbb.ru, e1@fff.ru, aaa@bbb.ru, eee@fff.ru]
+    notifyto: [a@b.ru]
+    mirrorto: [c@d.ru]
 
-  TEST:
-    discard: false
-    notifyself: false
-    notifyto: []
-    mirrorto: [a1@bbb.ru, e1@fff.ru]
+  FAKE_LOCAL_FROM_NAME:
+    discard: true
+    notifyto: [a@b.ru]
+    mirrorto: [c@d.ru]
