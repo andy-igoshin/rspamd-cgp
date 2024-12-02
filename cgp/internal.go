@@ -94,6 +94,44 @@ func getHeader(m *bufio.Reader) (hdr string, err error) {
 	return
 }
 
+func getHelo(body []byte) (helo string) {
+
+	var hdr string
+	var err error
+
+	m := bufio.NewReader(bytes.NewReader(body))
+
+	for {
+
+		hdr, err = m.ReadString('\n')
+		if err == io.EOF {
+			err = nil
+			if len(hdr) == 0 {
+				break
+			}
+		}
+		if err != nil {
+			return
+		}
+
+		if hdr == "\n" {
+			// конец RFC5322 заголовка
+			break
+		}
+
+		if strings.HasPrefix(hdr, recvHdr) {
+			if s := reHELO1.FindAllStringSubmatch(hdr, -1); s != nil {
+				helo = s[0][1]
+			} else if s := reHELO2.FindAllStringSubmatch(hdr, -1); s != nil {
+				helo = s[0][1]
+			}
+			break
+		}
+	}
+
+	return
+}
+
 func isSeen(m *bufio.Reader) (seen bool, err error) {
 
 	var found bool

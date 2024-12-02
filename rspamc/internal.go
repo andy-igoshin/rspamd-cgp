@@ -126,16 +126,18 @@ func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (
 	return nil, "", "", ""
 }
 
-func printMsg(from string, rcpts []string, auth string, ip string, qid int, seen bool) {
+func printMsgInfo(from string, rcpts []string, auth string, ip string, helo string, qid int, seen bool) {
 	fmt.Fprintln(os.Stderr, "from: ", from)
 	fmt.Fprintln(os.Stderr, "rcpts:", rcpts)
 	fmt.Fprintln(os.Stderr, "ip:   ", ip)
+	fmt.Fprintln(os.Stderr, "helo: ", helo)
 	fmt.Fprintln(os.Stderr, "qid:  ", qid)
 	if len(auth) > 0 {
 		fmt.Fprintln(os.Stderr, "auth: ", auth)
 	} else {
 		fmt.Fprintln(os.Stderr, "auth:  not authenticated")
 	}
+	fmt.Fprintln(os.Stderr, "seen: ", seen)
 	fmt.Fprintln(os.Stderr, "")
 }
 

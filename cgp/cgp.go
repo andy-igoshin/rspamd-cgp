@@ -21,12 +21,18 @@ const seenHdr = "X-Rspamd-Seen:"
 const subjHdr = "Subject:"
 const submitDir = "Submitted"
 
+var reHELO1 *regexp.Regexp
+var reHELO2 *regexp.Regexp
 var reMD *regexp.Regexp
 var reSELF *regexp.Regexp
 var reSMTP *regexp.Regexp
 var protocol int
 
 func init() {
+	// Received: from muus52.sndsy.ru ([185.235.30.52] verified)
+	reHELO1 = regexp.MustCompile(`^Received: from (\S+) \(.* ?\[\S+\] verified\)`)
+	// Received: from [10.19.5.40] (account edu@vsu.ru HELO edu.vsu.ru)
+	reHELO2 = regexp.MustCompile(`^Received: from \[\S+\] \(.*(?: ?HELO (\S+))\)`)
 	reMD = regexp.MustCompile(`^\s+DomainName\s+=\s+([^;]+);`)
 	reSELF = regexp.MustCompile(`^S (?:<([^>]+)> )?(ALARM|DSN|GROUP|LIST|LSTM|LSTO|MDN|PBX|PIPE|RULE|WEBUSER) \[0\.0\.0\.0\]`)
 	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTPU?|AIRSYNC|IMAP|RPOP|XIMSS) \[([0-9a-f.:]+)\]`)
@@ -121,7 +127,8 @@ func MainDomain() (domain string, err error) {
 	return
 }
 
-func Message(filename string) (from string, rcpts []string, auth string, ip string, qid int, body []byte, seen bool, err error) {
+func Message(filename string) (from string, rcpts []string, auth string, ip string, helo string,
+	qid int, body []byte, seen bool, err error) {
 
 	qid, err = strconv.Atoi((filename)[strings.LastIndexByte(filename, '/')+1 : strings.LastIndexByte(filename, '.')])
 	if err != nil {
@@ -200,6 +207,8 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 	if err != nil {
 		return
 	}
+
+	helo = getHelo(body)
 
 	rcpts = utils.UniqueSliceElementsNonEmpty(rcpts)
 
