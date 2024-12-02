@@ -1,20 +1,16 @@
 
     Rspamd helper for CommuniGate Pro 5.x, 6.x
+    Version 2.0.0
 
-    Copyright (C) 2017-2024 Andrey Igoshin <ai@vsu.ru>
-    Version 1.5.7
+    (С) Andrey Igoshin <ai@vsu.ru>, 2017-2025
 
     https://git.vsu.ru/ai/rspamd-cgp
 
 
     Usage of rspamd-cgp:
-      -authserv-id string
-            Authentication Identifier (default CommuniGate Pro Main Domain)
-      -host string
-            Rspamd host to connect (default "localhost:11333")
-      -mirror-discard
-            Mirror then discard selected messages
-      -mirror-to string
-            Mirror selected messages to email
-      -timeout duration
-            Rspamd request timeout (default 15s)
+      -config string
+            Set configuration file (default "rspamd-cgp.yml")
+      -configdump
+            Perform configuration file dump
+      -configtest
+            Perform configuration file test
