@@ -79,6 +79,10 @@ func NotifyTo(seq int, qid int, to []string, header string, from string, rcpts [
 		goto fin
 	}
 
+	if err = fh.Close(); err != nil {
+		goto fin
+	}
+
 	err = os.Rename(filetemp, filename)
 
 fin:
