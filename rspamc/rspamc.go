@@ -31,7 +31,7 @@ func Scan(conf *config.Config, seq int, filename string) {
 		Transport: tr,
 	}
 
-	from, rcpts, auth, ip, helo, qid, body, seen, err := cgp.Message(filename)
+	from, rcpts, auth, ip, helo, hostname, qid, body, seen, err := cgp.Message(filename)
 	if err != nil {
 		cgp.Failure(seq, qid, err)
 		return
@@ -61,6 +61,9 @@ func Scan(conf *config.Config, seq int, filename string) {
 	if len(helo) > 0 {
 		req.Header.Add("Helo", helo)
 	}
+	if len(hostname) > 0 {
+		req.Header.Add("Hostname", hostname)
+	}
 	for _, rcpt := range rcpts {
 		req.Header.Add("Rcpt", rcpt)
 	}
@@ -85,7 +88,7 @@ func Scan(conf *config.Config, seq int, filename string) {
 	}
 
 	if conf.Debug {
-		printMsgInfo(from, rcpts, auth, ip, helo, qid, seen)
+		printMsgInfo(from, rcpts, auth, ip, helo, hostname, qid, seen)
 		printResponse(res)
 	}
 

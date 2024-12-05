@@ -128,7 +128,7 @@ func MainDomain() (domain string, err error) {
 }
 
 func Message(filename string) (from string, rcpts []string, auth string, ip string, helo string,
-	qid int, body []byte, seen bool, err error) {
+	hostname string, qid int, body []byte, seen bool, err error) {
 
 	qid, err = strconv.Atoi((filename)[strings.LastIndexByte(filename, '/')+1 : strings.LastIndexByte(filename, '.')])
 	if err != nil {
@@ -172,6 +172,7 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 			if s := reSMTP.FindAllStringSubmatch(string(line), -1); s != nil {
 				auth = s[0][1]
 				ip = s[0][2]
+				hostname = getHostname(ip)
 			} else if s := reSELF.FindAllStringSubmatch(string(line), -1); s != nil {
 				if len(s[0][1]) > 0 {
 					auth = s[0][1]
