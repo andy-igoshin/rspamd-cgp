@@ -155,6 +155,7 @@ func procAction(seq int, qid int, opsum *config.Operation, res map[string]interf
 	if opsum != nil {
 
 		if opsum.Discard {
+			cgp.Putline("* %d [%d]: Action: discard; from %s, rcpts %s\n", seq, qid, from, strings.Join(rcpts, ","))
 			cgp.AddHeaderWithMirrorTo(seq, qid, opsum.MirrorTo, opsum.Discard, headers, body)
 		} else {
 			to := utils.DiffSlice(opsum.MirrorTo, rcpts)
