@@ -92,6 +92,12 @@ func Scan(conf *config.Config, seq int, filename string) {
 		printResponse(res)
 	}
 
+	if conf.Outbound {
+		headers := makeHeadersOutbound(res)
+		cgp.OkOutboud(seq, headers)
+		return
+	}
+
 	action := res["action"].(string)
 	headers := makeHeaders(res)
 	opsum, caseinfo, casework, desc := makeOpSum(conf, res, action)

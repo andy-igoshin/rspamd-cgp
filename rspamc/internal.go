@@ -57,6 +57,15 @@ func makeHeaders(res map[string]interface{}) (headers []string) {
 	return
 }
 
+func makeHeadersOutbound(res map[string]interface{}) (headers []string) {
+
+	if _, ok := res["dkim-signature"]; ok {
+		headers = append(headers, "DKIM-Signature: "+res["dkim-signature"].(string))
+	}
+
+	return
+}
+
 func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (*config.Operation, string, string, string) {
 
 	var casea []string

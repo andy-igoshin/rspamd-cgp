@@ -224,6 +224,23 @@ func Ok(seq int) {
 	Putline("%d OK\n", seq)
 }
 
+func OkOutboud(seq int, headers []string) {
+
+	if len(headers) > 0 {
+
+		hdrs := replaceSpecChars(strings.Join(headers, "\n"))
+
+		if protocol >= 4 {
+			Putline("%d ADDHEADER \"%s\" OK\n", seq, hdrs)
+		} else {
+			Putline("%d ADDHEADER \"%s\"\n", seq, hdrs)
+		}
+
+	} else {
+		Putline("%d OK\n", seq)
+	}
+}
+
 func OkSeen(seq, qid int) {
 	Putline("* %d [%d]: Already seen by Rspamd\n", seq, qid)
 	Putline("%d OK\n", seq)

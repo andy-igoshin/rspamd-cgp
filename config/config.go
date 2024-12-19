@@ -23,6 +23,7 @@ type Operation struct {
 type Config struct {
 	AuthservId string
 	Debug      bool
+	Outbound   bool
 	Host       string        `default:"localhost:11333"`
 	Timeout    time.Duration `default:"15s"`
 	NotifyFrom string        `required:"true"`
@@ -40,11 +41,13 @@ func New() *Config {
 	var configdump bool
 	var configtest bool
 	var debug bool
+	var outbound bool
 
 	flag.StringVar(&configfile, "config", dir+"/rspamd-cgp.yml", "Set configuration file")
 	flag.BoolVar(&configdump, "configdump", false, "Perform configuration file dump")
 	flag.BoolVar(&configtest, "configtest", false, "Perform configuration file test")
 	flag.BoolVar(&debug, "debug", false, "Run in debug mode")
+	flag.BoolVar(&outbound, "outbound", false, "Outbound message flow processing")
 	flag.Parse()
 
 	err := configor.Load(config, configfile)
@@ -55,6 +58,10 @@ func New() *Config {
 
 	if debug {
 		config.Debug = debug
+	}
+
+	if outbound {
+		config.Outbound = outbound
 	}
 
 	if configdump {
