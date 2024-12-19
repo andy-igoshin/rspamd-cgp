@@ -39,16 +39,22 @@ func New() *Config {
 	var configfile string
 	var configdump bool
 	var configtest bool
+	var debug bool
 
 	flag.StringVar(&configfile, "config", dir+"/rspamd-cgp.yml", "Set configuration file")
 	flag.BoolVar(&configdump, "configdump", false, "Perform configuration file dump")
 	flag.BoolVar(&configtest, "configtest", false, "Perform configuration file test")
+	flag.BoolVar(&debug, "debug", false, "Run in debug mode")
 	flag.Parse()
 
 	err := configor.Load(config, configfile)
 	if err != nil {
 		fmt.Println("config:", err)
 		os.Exit(1)
+	}
+
+	if debug {
+		config.Debug = debug
 	}
 
 	if configdump {
