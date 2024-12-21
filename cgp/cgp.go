@@ -49,14 +49,18 @@ func AddHeader(seq int, headers []string) {
 	}
 }
 
-func AddHeaderWithMirrorTo(seq int, qid int, to []string, discard bool, headers []string, body []byte) {
+func AddHeaderWithMirrorTo(seq int, qid int, to []string, discard bool, headers []string,
+	body []byte, outbound bool) {
 
-	seenHdr, err := makeSeen(body)
-	if err != nil {
-		Failure(seq, qid, err)
-		return
+	if !outbound || len(to) > 0 {
+		seenHdr, err := makeSeen(body)
+		if err != nil {
+			Failure(seq, qid, err)
+			return
+		}
+		headers = append(headers, seenHdr)
 	}
-	headers = append(headers, seenHdr)
+
 	hdrs := replaceSpecChars(strings.Join(headers, "\n"))
 
 	if protocol >= 4 {
@@ -222,23 +226,6 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 
 func Ok(seq int) {
 	Putline("%d OK\n", seq)
-}
-
-func OkOutboud(seq int, headers []string) {
-
-	if len(headers) > 0 {
-
-		hdrs := replaceSpecChars(strings.Join(headers, "\n"))
-
-		if protocol >= 4 {
-			Putline("%d ADDHEADER \"%s\" OK\n", seq, hdrs)
-		} else {
-			Putline("%d ADDHEADER \"%s\"\n", seq, hdrs)
-		}
-
-	} else {
-		Putline("%d OK\n", seq)
-	}
 }
 
 func OkSeen(seq, qid int) {

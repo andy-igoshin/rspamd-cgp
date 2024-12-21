@@ -158,17 +158,18 @@ func printResponse(v any) {
 	fmt.Fprintln(os.Stderr, string(printed))
 }
 
-func procAction(seq int, qid int, opsum *config.Operation, res map[string]interface{}, headers []string,
-	hci string, from string, rcpts []string, body []byte, notifyfrom string, desc string, t int) {
+func procAction(seq int, qid int, opsum *config.Operation, res map[string]interface{},
+	headers []string, hci string, from string, rcpts []string, body []byte, notifyfrom string,
+	desc string, outbound bool, t int) {
 
 	if opsum != nil {
 
 		if opsum.Discard {
 			cgp.Putline("* %d [%d]: Action: discard; from %s, rcpts %s\n", seq, qid, from, strings.Join(rcpts, ","))
-			cgp.AddHeaderWithMirrorTo(seq, qid, opsum.MirrorTo, opsum.Discard, headers, body)
+			cgp.AddHeaderWithMirrorTo(seq, qid, opsum.MirrorTo, opsum.Discard, headers, body, outbound)
 		} else {
 			to := utils.DiffSlice(opsum.MirrorTo, rcpts)
-			cgp.AddHeaderWithMirrorTo(seq, qid, to, opsum.Discard, headers, body)
+			cgp.AddHeaderWithMirrorTo(seq, qid, to, opsum.Discard, headers, body, outbound)
 		}
 
 		if len(opsum.NotifyTo) > 0 || opsum.NotifyRcpts {
@@ -203,8 +204,9 @@ func procAction(seq int, qid int, opsum *config.Operation, res map[string]interf
 	}
 }
 
-func procActionRS(seq int, qid int, opsum *config.Operation, res map[string]interface{}, headers []string,
-	hci string, subject string, from string, rcpts []string, body []byte, notifyfrom string, desc string) {
+func procActionRS(seq int, qid int, opsum *config.Operation, res map[string]interface{},
+	headers []string, hci string, subject string, from string, rcpts []string, body []byte,
+	notifyfrom string, desc string, outbound bool) {
 
 	err := cgp.RewriteSubject(seq, headers, subject, qid, from, rcpts, body)
 	if err != nil {
@@ -212,7 +214,7 @@ func procActionRS(seq int, qid int, opsum *config.Operation, res map[string]inte
 	} else {
 
 		if opsum != nil {
-			cgp.AddHeaderWithMirrorTo(seq, qid, opsum.MirrorTo, opsum.Discard, headers, body)
+			cgp.AddHeaderWithMirrorTo(seq, qid, opsum.MirrorTo, opsum.Discard, headers, body, outbound)
 			if len(opsum.NotifyTo) > 0 || opsum.NotifyRcpts {
 				if opsum.NotifyRcpts {
 					to := make([]string, 0, len(opsum.NotifyTo)+len(rcpts))

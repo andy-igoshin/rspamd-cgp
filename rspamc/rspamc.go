@@ -92,15 +92,16 @@ func Scan(conf *config.Config, seq int, filename string) {
 		printResponse(res)
 	}
 
-	if conf.Outbound {
-		headers := makeHeadersOutbound(res)
-		cgp.OkOutboud(seq, headers)
-		return
-	}
-
 	action := res["action"].(string)
-	headers := makeHeaders(res)
 	opsum, caseinfo, casework, desc := makeOpSum(conf, res, action)
+
+    headers := make([]string, 0, 8)
+
+	if conf.Outbound {
+		headers = makeHeadersOutbound(res)
+	} else {
+		headers = makeHeaders(res)
+	}
 
 	cgp.Putline("* %d [%d]: Action: %s; Score: %.2f/%.2f; Time elapsed: %.3fs\n",
 		seq, qid, action, res["score"], res["required_score"], res["time_real"])
@@ -110,35 +111,52 @@ func Scan(conf *config.Config, seq int, filename string) {
 	if opsum != nil {
 		cgp.Putline("* %d [%d]: Case: %s; %s\n", seq, qid, caseinfo, casework)
 		hci = headerCase + caseinfo
-		headers = append(headers, hci)
+		if !conf.Outbound {
+			headers = append(headers, hci)
+		}
 	}
 
 	switch action {
 	case "no action":
-		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, 0)
+		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 0)
 
 	case "discard":
-		procAction(seq, qid, opsum, res, append(headers, headerJunkR), hci, from, rcpts, body, conf.NotifyFrom, desc, 2)
+		if !conf.Outbound {
+			headers = append(headers, headerJunkR)
+		}
+		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 2)
 
 	case "quarantine":
 		fallthrough
 	case "reject":
-		procAction(seq, qid, opsum, res, append(headers, headerJunkR), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
+		if !conf.Outbound {
+			headers = append(headers, headerJunkR)
+		}
+		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 1)
 
 	case "rewrite subject":
 		if subject, ok := res["subject"]; ok {
-			procActionRS(seq, qid, opsum, res, append(headers, headerJunkA), hci, subject.(string), from, rcpts, body, conf.NotifyFrom, desc)
+			procActionRS(seq, qid, opsum, res, headers, hci, subject.(string), from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound)
 		} else {
-			procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
+			if !conf.Outbound {
+				headers = append(headers, headerJunkA)
+			}
+			procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 1)
 		}
 
 	case "add header":
-		procAction(seq, qid, opsum, res, append(headers, headerJunkA), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
+		if !conf.Outbound {
+			headers = append(headers, headerJunkA)
+		}
+		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 1)
 
 	case "greylist":
 		fallthrough
 	case "soft reject":
-		procAction(seq, qid, opsum, res, append(headers, headerJunkG), hci, from, rcpts, body, conf.NotifyFrom, desc, 1)
+		if !conf.Outbound {
+			headers = append(headers, headerJunkG)
+		}
+		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 1)
 
 	default:
 		cgp.Failure(seq, qid, fmt.Errorf("Unknown action: %v", action))
