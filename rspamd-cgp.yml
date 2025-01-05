@@ -25,6 +25,7 @@ notifyfrom: rspamd-cgp-notify@domain.ru
 #
 # discard:                              # название действия
 #   description: "discard action"       # короткое описание действия
+#   direction: in|out|both              # применить действие для направления
 #   discard: true                       # доставить сообщение или выбросить
 #   notifyrcpts: false                  # оповещать ли получателей сообщения
 #   notifyto: []                        # список получателей оповещения
@@ -44,6 +45,7 @@ actions:
 #
 # FAKE_LOCAL_FROM:                      # название символа
 #   description: ""                     # по умолчанию берётся из ответа Rspamd
+#   direction: in|out|both              # применить символ для направления
 #   discard: true                       # доставить сообщение или выбросить
 #   notifyrcpts: false                  # оповещать ли получателей сообщения
 #   notifyto: []                        # список получателей оповещения

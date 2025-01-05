@@ -14,6 +14,7 @@ import (
 
 type Operation struct {
 	Description string
+	Direction   string
 	Discard     bool
 	MirrorTo    []string
 	NotifyRcpts bool
@@ -27,8 +28,8 @@ type Config struct {
 	Host       string        `default:"localhost:11333"`
 	Timeout    time.Duration `default:"15s"`
 	NotifyFrom string        `required:"true"`
-	Actions    map[string]Operation
-	Symbols    map[string]Operation
+	Actions    map[string]*Operation
+	Symbols    map[string]*Operation
 }
 
 func New() *Config {
@@ -89,6 +90,8 @@ func New() *Config {
 			os.Exit(1)
 		}
 	}
+
+	setOpDefaultDirection(config)
 
 	config.Host = "http://" + config.Host + "/checkv2"
 

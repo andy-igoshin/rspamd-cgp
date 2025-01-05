@@ -34,6 +34,24 @@ func filterLocalRcpts(rcpts []string, res map[string]interface{}) []string {
 	return filtered
 }
 
+func isOpAccept(direction string, outbound bool) (a bool) {
+
+	if outbound {
+
+		if direction == "out" || direction == "both" {
+			a = true
+		}
+
+	} else {
+
+		if direction == "in" || direction == "both" {
+			a = true
+		}
+	}
+
+	return
+}
+
 func makeHeaders(res map[string]interface{}) (headers []string) {
 
 	if _, ok := res["dkim-signature"]; ok {
@@ -73,34 +91,46 @@ func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (
 	opsum := new(config.Operation)
 
 	if op, ok := conf.Actions[action]; ok {
-		opsum.Discard = op.Discard
-		opsum.MirrorTo = op.MirrorTo
-		opsum.NotifyRcpts = op.NotifyRcpts
-		opsum.NotifyTo = op.NotifyTo
-		casea = append(casea, action)
+		if isOpAccept(conf.Actions[action].Direction, conf.Outbound) {
+			opsum.Discard = op.Discard
+			opsum.MirrorTo = op.MirrorTo
+			opsum.NotifyRcpts = op.NotifyRcpts
+			opsum.NotifyTo = op.NotifyTo
+			casea = append(casea, action)
 
-		if len(op.Description) > 0 {
-			desca = append(desca, action+": "+op.Description)
-		} else {
-			desca = append(desca, action)
+			if len(op.Description) > 0 {
+				desca = append(desca, action+": "+op.Description)
+			} else {
+				desca = append(desca, action)
+			}
+
+			if conf.Debug {
+				printSelectedOp("Action", action, conf.Actions[action].Direction, conf.Outbound)
+			}
 		}
 	}
 
 	for symbol, op := range conf.Symbols {
-		if v, ok := res["symbols"].(map[string]interface{})[symbol]; ok {
-			opsum.Discard = opsum.Discard || op.Discard
-			opsum.MirrorTo = append(opsum.MirrorTo, op.MirrorTo...)
-			opsum.NotifyRcpts = opsum.NotifyRcpts || op.NotifyRcpts
-			opsum.NotifyTo = append(opsum.NotifyTo, op.NotifyTo...)
-			casea = append(casea, symbol)
+		if isOpAccept(conf.Symbols[symbol].Direction, conf.Outbound) {
+			if v, ok := res["symbols"].(map[string]interface{})[symbol]; ok {
+				opsum.Discard = opsum.Discard || op.Discard
+				opsum.MirrorTo = append(opsum.MirrorTo, op.MirrorTo...)
+				opsum.NotifyRcpts = opsum.NotifyRcpts || op.NotifyRcpts
+				opsum.NotifyTo = append(opsum.NotifyTo, op.NotifyTo...)
+				casea = append(casea, symbol)
 
-			if len(op.Description) > 0 {
-				desca = append(desca, symbol+": "+op.Description)
-			} else {
-				if desc, ok := v.(map[string]interface{})["description"]; ok {
-					desca = append(desca, symbol+": "+desc.(string))
+				if len(op.Description) > 0 {
+					desca = append(desca, symbol+": "+op.Description)
 				} else {
-					desca = append(desca, symbol)
+					if desc, ok := v.(map[string]interface{})["description"]; ok {
+						desca = append(desca, symbol+": "+desc.(string))
+					} else {
+						desca = append(desca, symbol)
+					}
+				}
+
+				if conf.Debug {
+					printSelectedOp("Symbol", symbol, conf.Symbols[symbol].Direction, conf.Outbound)
 				}
 			}
 		}
@@ -153,9 +183,18 @@ func printMsgInfo(from string, rcpts []string, auth string, ip string, helo stri
 	fmt.Fprintln(os.Stderr, "")
 }
 
+func printSelectedOp(optype, opname, direction string, outbound bool) {
+
+	if outbound {
+		fmt.Fprintf(os.Stderr, "%s '%s' selected for outbound flow: direction %s\n", optype, opname, direction)
+	} else {
+		fmt.Fprintf(os.Stderr, "%s '%s' selected for inbound flow: direction %s\n", optype, opname, direction)
+	}
+}
+
 func printResponse(v any) {
 	printed, _ := json.MarshalIndent(v, "", "  ")
-	fmt.Fprintln(os.Stderr, string(printed))
+	fmt.Fprintln(os.Stderr, string(printed), "\n")
 }
 
 func procAction(seq int, qid int, opsum *config.Operation, res map[string]interface{},
