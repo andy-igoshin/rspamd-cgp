@@ -95,7 +95,7 @@ func Scan(conf *config.Config, seq int, filename string) {
 	action := res["action"].(string)
 	opsum, caseinfo, casework, desc := makeOpSum(conf, res, action)
 
-    headers := make([]string, 0, 8)
+	headers := make([]string, 0, 8)
 
 	if conf.Outbound {
 		headers = makeHeadersOutbound(res)
