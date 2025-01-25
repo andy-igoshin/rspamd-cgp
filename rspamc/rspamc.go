@@ -2,12 +2,11 @@ package rspamc
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
-
-	json "github.com/json-iterator/go"
 
 	"git.vsu.ru/ai/rspamd-cgp/cgp"
 	"git.vsu.ru/ai/rspamd-cgp/config"
