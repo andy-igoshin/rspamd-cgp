@@ -34,7 +34,7 @@ func init() {
 	// Received: from [10.19.5.40] (account edu@vsu.ru HELO edu.vsu.ru)
 	reHELO2 = regexp.MustCompile(`^Received: from \[\S+\] \(.*(?: ?HELO (\S+))\)`)
 	reMD = regexp.MustCompile(`^\s+DomainName\s+=\s+([^;]+);`)
-	reSELF = regexp.MustCompile(`^S (?:<([^>]+)> )?(ALARM|DSN|GROUP|LIST|LSTM|LSTO|MDN|PBX|PIPE|RULE|WEBUSER) \[0\.0\.0\.0\]`)
+	reSELF = regexp.MustCompile(`^S (?:<([^>]+)> )?(ALARM|DSN|GROUP|ICAL|LIST|LSTM|LSTO|MDN|PBX|PIPE|RULE|WEBUSER) \[0\.0\.0\.0\]`)
 	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTPU?|AIRSYNC|IMAP|RPOP|XIMSS) \[([0-9a-f.:]+)\]`)
 }
 
