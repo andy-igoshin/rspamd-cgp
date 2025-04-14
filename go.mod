@@ -1,6 +1,6 @@
 module git.vsu.ru/ai/rspamd-cgp
 
-go 1.23
+go 1.24.2
 
 require (
 	github.com/jinzhu/configor v1.2.2
@@ -10,7 +10,7 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v1.4.0 // indirect
+	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/dolthub/maphash v0.1.0 // indirect
 	github.com/gammazero/deque v1.0.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
