@@ -104,58 +104,64 @@ func lookupAddr(ipAddr netip.Addr) (hostname string) {
 	r := &net.Resolver{PreferGo: true}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	names, err := r.LookupAddr(ctx, ipAddr.String())
-	cancel()
 	if err != nil {
 		return
 	}
 
 	if len(names) == 1 {
-		hostname = names[0]
-	} else if len(names) > 1 {
+		hostname = strings.TrimSuffix(names[0], ".")
+		return
+	}
 
-		found := make([]string, 0, len(names))
+	type result struct{ name string }
+	ch := make(chan result, len(names))
 
-		for _, name := range names {
-
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	for _, name := range names {
+		go func(name string) {
 			ips, err := r.LookupHost(ctx, name)
-			cancel()
 			if err != nil {
+				ch <- result{}
 				return
 			}
-
 			for _, ip := range ips {
 				ipTest, err := netip.ParseAddr(ip)
 				if err != nil {
 					continue
 				}
 				if ipTest == ipAddr {
-					found = append(found, name)
-					break
+					ch <- result{name}
+					return
 				}
 			}
-		}
+			ch <- result{}
+		}(name)
+	}
 
-		switch len(found) {
-		case 0:
-			// если ни один name не имеет корректного прямого резольвинга
-			// в исходный ip, выбираем самый длинный.
-			hostname = findLongerItem(filterNames(names))
-
-		case 1:
-			hostname = found[0]
-
-		default:
-			// если несколько name имеют корректный прямой резольвинг
-			// в исходный ip, выбираем самый короткий.
-			hostname = findShorterItem(filterNames(found))
+	found := make([]string, 0, len(names))
+	for range names {
+		if r := <-ch; r.name != "" {
+			found = append(found, r.name)
 		}
 	}
 
-	if len(hostname) > 0 {
-		hostname = strings.TrimSuffix(hostname, ".")
+	switch len(found) {
+	case 0:
+		// если ни один name не имеет корректного прямого резольвинга
+		// в исходный ip, выбираем самый длинный.
+		hostname = findLongerItem(filterNames(names))
+
+	case 1:
+		hostname = found[0]
+
+	default:
+		// если несколько name имеют корректный прямой резольвинг
+		// в исходный ip, выбираем самый короткий.
+		hostname = findShorterItem(filterNames(found))
 	}
 
+	hostname = strings.TrimSuffix(hostname, ".")
 	return
 }
