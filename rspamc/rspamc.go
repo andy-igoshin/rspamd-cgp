@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"git.vsu.ru/ai/rspamd-cgp/cgp"
 	"git.vsu.ru/ai/rspamd-cgp/config"
@@ -19,16 +20,21 @@ const (
 	headerJunkR string = "X-Junk-Score: [XXXXXXXXXX]"
 )
 
+var (
+	client    *http.Client
+	clientOne sync.Once
+)
+
 func Scan(conf *config.Config, seq int, filename string) {
 
-	tr := &http.Transport{
-		DisableCompression: true,
-	}
-
-	client := &http.Client{
-		Timeout:   conf.Timeout,
-		Transport: tr,
-	}
+	clientOne.Do(func() {
+		client = &http.Client{
+			Timeout: conf.Timeout,
+			Transport: &http.Transport{
+				DisableCompression: true,
+			},
+		}
+	})
 
 	from, rcpts, auth, ip, helo, hostname, qid, body, seen, err := cgp.Message(filename)
 	if err != nil {
@@ -74,13 +80,13 @@ func Scan(conf *config.Config, seq int, filename string) {
 	}
 	defer resp.Body.Close()
 
-	rbody, err := ioutil.ReadAll(resp.Body)
+	rbody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		cgp.Failure(seq, qid, err)
 		return
 	}
 
-	var res map[string]interface{}
+	var res map[string]any
 	if err := json.Unmarshal(rbody, &res); err != nil {
 		cgp.Failure(seq, qid, err)
 		return
@@ -91,11 +97,15 @@ func Scan(conf *config.Config, seq int, filename string) {
 		printResponse(res)
 	}
 
-	action := res["action"].(string)
+	action, ok := res["action"].(string)
+	if !ok {
+		cgp.Failure(seq, qid, fmt.Errorf("missing or invalid 'action' field"))
+		return
+	}
+
 	opsum, caseinfo, casework, desc := makeOpSum(conf, res, action)
 
 	headers := make([]string, 0, 8)
-
 	if conf.Outbound {
 		headers = makeHeadersOutbound(res)
 	} else {
@@ -134,8 +144,8 @@ func Scan(conf *config.Config, seq int, filename string) {
 		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 1)
 
 	case "rewrite subject":
-		if subject, ok := res["subject"]; ok {
-			procActionRS(seq, qid, opsum, res, headers, hci, subject.(string), from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound)
+		if subject, ok := res["subject"].(string); ok {
+			procActionRS(seq, qid, opsum, res, headers, hci, subject, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound)
 		} else {
 			if !conf.Outbound {
 				headers = append(headers, headerJunkA)
