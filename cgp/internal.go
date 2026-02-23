@@ -12,6 +12,18 @@ import (
 	"git.vsu.ru/ai/rspamd-cgp/utils"
 )
 
+func extractAngle(line []byte) (string, bool) {
+	s := strings.IndexByte(string(line), '<')
+	if s < 0 {
+		return "", false
+	}
+	e := strings.IndexByte(string(line[s:]), '>')
+	if e < 0 {
+		return "", false
+	}
+	return string(line[s : s+e+1]), true
+}
+
 func getHeader(m *bufio.Reader) (hdr string, err error) {
 
 	var c byte
@@ -22,15 +34,16 @@ func getHeader(m *bufio.Reader) (hdr string, err error) {
 
 	for {
 		c, err = m.ReadByte()
-		if err == io.EOF {
-			if c == 0 {
-				break
-			} else {
-				err = nil
-			}
-		}
 		if err != nil {
-			return
+			if err == io.EOF {
+				if c == 0 {
+					break
+				} else {
+					err = nil
+				}
+			} else {
+				return
+			}
 		}
 
 		if b.Len() == 0 {
@@ -53,11 +66,12 @@ func getHeader(m *bufio.Reader) (hdr string, err error) {
 				b.WriteByte(c)
 
 				line, err = m.ReadSlice('\n')
-				if err == io.EOF {
-					err = nil
-				}
 				if err != nil {
-					return
+					if err == io.EOF {
+						err = nil
+					} else {
+						return
+					}
 				}
 
 				b.Write(line)
@@ -70,11 +84,12 @@ func getHeader(m *bufio.Reader) (hdr string, err error) {
 				b.WriteByte(c)
 
 				line, err = m.ReadSlice('\n')
-				if err == io.EOF {
-					err = nil
-				}
 				if err != nil {
-					return
+					if err == io.EOF {
+						err = nil
+					} else {
+						return
+					}
 				}
 
 				b.Write(line)
@@ -104,14 +119,15 @@ func getHelo(body []byte) (helo string) {
 	for {
 
 		hdr, err = m.ReadString('\n')
-		if err == io.EOF {
-			err = nil
-			if len(hdr) == 0 {
-				break
-			}
-		}
 		if err != nil {
-			return
+			if err == io.EOF {
+				err = nil
+				if len(hdr) == 0 {
+					break
+				}
+			} else {
+				return
+			}
 		}
 
 		if hdr == "\n" {
@@ -141,14 +157,15 @@ func isSeen(m *bufio.Reader) (seen bool, err error) {
 	for {
 
 		hdr, err = getHeader(m)
-		if err == io.EOF {
-			err = nil
-			if len(hdr) == 0 {
-				break
-			}
-		}
 		if err != nil {
-			return
+			if err == io.EOF {
+				err = nil
+				if len(hdr) == 0 {
+					break
+				}
+			} else {
+				return
+			}
 		}
 
 		if hdr == "\n" {
@@ -186,14 +203,15 @@ func makeSeen(body []byte) (seenhdr string, err error) {
 	for {
 
 		hdr, err = getHeader(m)
-		if err == io.EOF {
-			err = nil
-			if len(hdr) == 0 {
-				break
-			}
-		}
 		if err != nil {
-			return
+			if err == io.EOF {
+				err = nil
+				if len(hdr) == 0 {
+					break
+				}
+			} else {
+				return
+			}
 		}
 
 		if hdr == "\n" {
