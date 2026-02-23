@@ -134,7 +134,13 @@ func MainDomain() (domain string, err error) {
 func Message(filename string) (from string, rcpts []string, auth string, ip string, helo string,
 	hostname string, qid int, body []byte, seen bool, err error) {
 
-	qid, err = strconv.Atoi((filename)[strings.LastIndexByte(filename, '/')+1 : strings.LastIndexByte(filename, '.')])
+	start := strings.LastIndexByte(filename, '/') + 1
+	end := strings.LastIndexByte(filename, '.')
+	if end <= start {
+		err = fmt.Errorf("invalid filename: %s", filename)
+		return
+	}
+	qid, err = strconv.Atoi(filename[start:end])
 	if err != nil {
 		return
 	}
@@ -154,6 +160,9 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 
 		line, err = m.ReadSlice('\n')
 		if err != nil {
+			if err == io.EOF {
+				err = fmt.Errorf("unexpected end of message")
+			}
 			return
 		}
 
@@ -165,12 +174,14 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 
 		switch line[0] {
 		case 'P':
-			s := strings.IndexByte(string(line), '<')
-			from = string(line[s : s+strings.IndexByte(string(line[s:]), '>')+1])
+			if v, ok := extractAngle(line); ok {
+				from = v
+			}
 
 		case 'R':
-			s := strings.IndexByte(string(line), '<')
-			rcpts = append(rcpts, string(line[s:s+strings.IndexByte(string(line[s:]), '>')+1]))
+			if v, ok := extractAngle(line); ok {
+				rcpts = append(rcpts, v)
+			}
 
 		case 'S':
 			if s := reSMTP.FindAllStringSubmatch(string(line), -1); s != nil {
@@ -202,7 +213,7 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 		return
 	}
 
-	_, err = h.Seek(pos, os.SEEK_SET)
+	_, err = h.Seek(pos, io.SeekStart)
 	if err != nil {
 		return
 	}
@@ -245,7 +256,6 @@ func Reject(seq int) {
 func RewriteSubject(seq int, headers []string, subject string, qid int, from string, rcpts []string, body []byte) (err error) {
 
 	var firstRecv bool = true
-	var m *bufio.Reader
 	var hdr string
 	var pos int = 0
 
@@ -254,28 +264,19 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 
 	fh, err := os.Create(filetemp)
 	if err != nil {
-		goto fin
+		return
 	}
 	defer fh.Close()
 
-	_, err = fh.WriteString("Return-Path: " + from + "\n")
-	if err != nil {
-		goto fin
-	}
+	fh.WriteString("Return-Path: " + from + "\n")
 
 	for _, rcpt := range rcpts {
-		_, err = fh.WriteString("Envelope-To: " + rcpt + "\n")
-		if err != nil {
-			goto fin
-		}
+		fh.WriteString("Envelope-To: " + rcpt + "\n")
 	}
 
-	_, err = fh.WriteString(strings.Join(headers, "\n") + "\n")
-	if err != nil {
-		goto fin
-	}
+	fh.WriteString(strings.Join(headers, "\n") + "\n")
 
-	m = bufio.NewReader(bytes.NewReader(body))
+	m := bufio.NewReader(bytes.NewReader(body))
 
 	for {
 
@@ -287,17 +288,14 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 			}
 		}
 		if err != nil {
-			goto fin
+			return
 		}
 
 		pos += len(hdr)
 
 		if hdr == "\n" {
 			// конец RFC5322 заголовка
-			_, err = fh.WriteString(hdr)
-			if err != nil {
-				goto fin
-			}
+			fh.WriteString(hdr)
 			break
 		}
 
@@ -306,47 +304,26 @@ func RewriteSubject(seq int, headers []string, subject string, qid int, from str
 			bs := sha256.Sum224([]byte(utils.NoSpace(hdr)))
 			sum := hex.EncodeToString(bs[:])
 
-			_, err = fh.WriteString(seenHdr + " " + sum + "\n")
-			if err != nil {
-				goto fin
-			}
-
-			_, err = fh.WriteString(hdr)
-			if err != nil {
-				goto fin
-			}
+			fh.WriteString(seenHdr + " " + sum + "\n")
+			fh.WriteString(hdr)
 
 			firstRecv = false
 			continue
 		}
 
 		if strings.HasPrefix(hdr, subjHdr) {
-
-			_, err = fh.WriteString(subjHdr + " " + subject + "\n")
-			if err != nil {
-				goto fin
-			}
-
+			fh.WriteString(subjHdr + " " + subject + "\n")
 			continue
 		}
 
-		_, err = fh.WriteString(hdr)
-		if err != nil {
-			goto fin
-		}
+		fh.WriteString(hdr)
 	}
 
-	_, err = fh.Write(body[pos:])
-	if err != nil {
-		goto fin
-	}
+	fh.Write(body[pos:])
 
 	if err = fh.Close(); err != nil {
-		goto fin
+		return
 	}
 
-	err = os.Rename(filetemp, filename)
-
-fin:
-	return
+	return os.Rename(filetemp, filename)
 }
