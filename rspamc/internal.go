@@ -1,32 +1,50 @@
 package rspamc
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
-
-	json "github.com/json-iterator/go"
 
 	"git.vsu.ru/ai/rspamd-cgp/cgp"
 	"git.vsu.ru/ai/rspamd-cgp/config"
 	"git.vsu.ru/ai/rspamd-cgp/utils"
 )
 
-func filterLocalRcpts(rcpts []string, res map[string]interface{}) []string {
+func filterLocalRcpts(rcpts []string, res map[string]any) []string {
 
 	filtered := make([]string, 0, len(rcpts))
 
-	if v, ok := res["symbols"].(map[string]interface{})["RCPTS_DOMAINS_LOCAL"]; ok {
-		if domains, ok := v.(map[string]interface{})["options"]; ok {
-			for _, rcpt := range rcpts {
-				for _, domain := range domains.([]interface{}) {
-					if rcpt[strings.IndexByte(rcpt, '@')+1:len(rcpt)-1] == domain.(string) {
-						filtered = append(filtered, rcpt)
-						break
-					}
-				}
+	symbols, ok := res["symbols"].(map[string]any)
+	if !ok {
+		return filtered
+	}
+
+	v, ok := symbols["RCPTS_DOMAINS_LOCAL"].(map[string]any)
+	if !ok {
+		return filtered
+	}
+
+	domains, ok := v["options"].([]any)
+	if !ok {
+		return filtered
+	}
+
+	for _, rcpt := range rcpts {
+		at := strings.IndexByte(rcpt, '@')
+		if at < 0 {
+			continue
+		}
+		rcptDomain := rcpt[at+1 : len(rcpt)-1]
+		for _, d := range domains {
+			domain, ok := d.(string)
+			if !ok {
+				continue
+			}
+			if rcptDomain == domain {
+				filtered = append(filtered, rcpt)
+				break
 			}
 		}
 	}
@@ -52,20 +70,18 @@ func isOpAccept(direction string, outbound bool) (a bool) {
 	return
 }
 
-func makeHeaders(res map[string]interface{}) (headers []string) {
+func makeHeaders(res map[string]any) (headers []string) {
 
-	if _, ok := res["dkim-signature"]; ok {
-		headers = append(headers, "DKIM-Signature: "+res["dkim-signature"].(string))
+	if dkim, ok := res["dkim-signature"].(string); ok {
+		headers = append(headers, "DKIM-Signature: "+dkim)
 	}
 
-	if milter, ok := res["milter"]; ok {
-		if hdrs, ok := milter.(map[string]interface{})["add_headers"]; ok {
-			if reflect.TypeOf(hdrs).String() == "map[string]interface {}" {
-				for h, vh := range hdrs.(map[string]interface{}) {
-					if reflect.TypeOf(vh).String() == "map[string]interface {}" {
-						if v, ok := vh.(map[string]interface{})["value"].(string); ok && v != "" {
-							headers = append(headers, h+": "+v)
-						}
+	if milter, ok := res["milter"].(map[string]any); ok {
+		if hdrs, ok := milter["add_headers"].(map[string]any); ok {
+			for h, vh := range hdrs {
+				if vh, ok := vh.(map[string]any); ok {
+					if v, ok := vh["value"].(string); ok && v != "" {
+						headers = append(headers, h+": "+v)
 					}
 				}
 			}
@@ -75,7 +91,7 @@ func makeHeaders(res map[string]interface{}) (headers []string) {
 	return
 }
 
-func makeHeadersOutbound(res map[string]interface{}) (headers []string) {
+func makeHeadersOutbound(res map[string]any) (headers []string) {
 
 	if _, ok := res["dkim-signature"]; ok {
 		headers = append(headers, "DKIM-Signature: "+res["dkim-signature"].(string))
@@ -84,7 +100,7 @@ func makeHeadersOutbound(res map[string]interface{}) (headers []string) {
 	return
 }
 
-func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (*config.Operation, string, string, string) {
+func makeOpSum(conf *config.Config, res map[string]any, action string) (*config.Operation, string, string, string) {
 
 	var casea []string
 	var desca []string
@@ -112,7 +128,7 @@ func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (
 
 	for symbol, op := range conf.Symbols {
 		if isOpAccept(conf.Symbols[symbol].Direction, conf.Outbound) {
-			if v, ok := res["symbols"].(map[string]interface{})[symbol]; ok {
+			if v, ok := res["symbols"].(map[string]any)[symbol]; ok {
 				opsum.Discard = opsum.Discard || op.Discard
 				opsum.MirrorTo = append(opsum.MirrorTo, op.MirrorTo...)
 				opsum.NotifyRcpts = opsum.NotifyRcpts || op.NotifyRcpts
@@ -122,8 +138,8 @@ func makeOpSum(conf *config.Config, res map[string]interface{}, action string) (
 				if len(op.Description) > 0 {
 					desca = append(desca, symbol+": "+op.Description)
 				} else {
-					if desc, ok := v.(map[string]interface{})["description"]; ok {
-						desca = append(desca, symbol+": "+desc.(string))
+					if desc, ok := v.(map[string]any)["description"].(string); ok {
+						desca = append(desca, symbol+": "+desc)
 					} else {
 						desca = append(desca, symbol)
 					}
@@ -194,10 +210,11 @@ func printSelectedOp(optype, opname, direction string, outbound bool) {
 
 func printResponse(v any) {
 	printed, _ := json.MarshalIndent(v, "", "  ")
-	fmt.Fprintln(os.Stderr, string(printed), "\n")
+	os.Stderr.Write(printed)
+	os.Stderr.Write([]byte("\n"))
 }
 
-func procAction(seq int, qid int, opsum *config.Operation, res map[string]interface{},
+func procAction(seq int, qid int, opsum *config.Operation, res map[string]any,
 	headers []string, hci string, from string, rcpts []string, body []byte, notifyfrom string,
 	desc string, outbound bool, t int) {
 
@@ -243,7 +260,7 @@ func procAction(seq int, qid int, opsum *config.Operation, res map[string]interf
 	}
 }
 
-func procActionRS(seq int, qid int, opsum *config.Operation, res map[string]interface{},
+func procActionRS(seq int, qid int, opsum *config.Operation, res map[string]any,
 	headers []string, hci string, subject string, from string, rcpts []string, body []byte,
 	notifyfrom string, desc string, outbound bool) {
 
