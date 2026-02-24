@@ -53,12 +53,12 @@ func AddHeaderWithMirrorTo(seq int, qid int, to []string, discard bool, headers 
 	body []byte, outbound bool) {
 
 	if !outbound || len(to) > 0 {
-		seenHdr, err := makeSeen(body)
+		seenhdr, err := makeSeen(body)
 		if err != nil {
 			Failure(seq, qid, err)
 			return
 		}
-		headers = append(headers, seenHdr)
+		headers = append(headers, seenhdr)
 	}
 
 	hdrs := replaceSpecChars(strings.Join(headers, "\n"))
@@ -200,11 +200,7 @@ func Message(filename string) (from string, rcpts []string, auth string, ip stri
 	}
 
 	seen, err = isSeen(m)
-	if err != nil {
-		return
-	}
-
-	if seen {
+	if err != nil || seen {
 		return
 	}
 
