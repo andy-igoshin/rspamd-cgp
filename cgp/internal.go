@@ -131,7 +131,7 @@ func getHelo(body []byte) (helo string) {
 		}
 
 		if hdr == "\n" {
-			// конец RFC5322 заголовка
+			// конец заголовка
 			break
 		}
 
@@ -169,7 +169,7 @@ func isSeen(m *bufio.Reader) (seen bool, err error) {
 		}
 
 		if hdr == "\n" {
-			// конец RFC5322 заголовка
+			// конец заголовка
 			break
 		}
 
@@ -215,6 +215,7 @@ func makeSeen(body []byte) (seenhdr string, err error) {
 		}
 
 		if hdr == "\n" {
+			// конец заголовка
 			break
 		}
 
