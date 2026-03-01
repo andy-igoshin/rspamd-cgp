@@ -27,6 +27,7 @@ var reMD *regexp.Regexp
 var reSELF *regexp.Regexp
 var reSMTP *regexp.Regexp
 var protocol int
+var	stdoutFd int
 
 func init() {
 	// Received: from muus52.sndsy.ru ([185.235.30.52] verified)
@@ -98,6 +99,25 @@ func Discard(seq int, qid int, from string, rcpts []string) {
 func Failure(seq, qid int, err error) {
 	Putline("* %d [%d]: %s\n", seq, qid, err)
 	Putline("%d FAILURE\n", seq)
+}
+
+// InitStdoutFd инициализирует системный дескриптор для ответов серверу.
+// Вызывать в самом начале main().
+func InitStdoutFd() error {
+	rawConn, err := os.Stdout.SyscallConn()
+	if err != nil {
+		return err
+	}
+
+	err = rawConn.Control(func(fd uintptr) {
+		stdoutFd = int(fd)
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func Intf(seq int, ver string) {
@@ -242,7 +262,7 @@ func OkSeen(seq, qid int) {
 
 func Putline(format string, a ...interface{}) {
 	s := fmt.Sprintf(format, a...)
-	syscall.Write(int(os.Stdout.Fd()), []byte(s))
+	syscall.Write(stdoutFd, []byte(s))
 }
 
 func Reject(seq int) {
