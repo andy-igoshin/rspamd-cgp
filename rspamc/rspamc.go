@@ -13,11 +13,18 @@ import (
 	"git.vsu.ru/ai/rspamd-cgp/config"
 )
 
+type Duration float64
+
+func (d Duration) Append(dst []byte) []byte {
+    dst = strconv.AppendFloat(dst, float64(d), 'f', 6, 64)
+    return append(dst, " ms"...)
+}
+
 type RspamdResponse struct {
 	Action        string  `json:"action"`
 	Score         float64 `json:"score"`
 	RequiredScore float64 `json:"required_score"`
-	TimeReal      float64 `json:"time_real"`
+	TimeReal      Duration `json:"time_real"`
 	Subject       string  `json:"subject,omitempty"`
 	DKIMSignature string  `json:"dkim-signature,omitempty"`
 
