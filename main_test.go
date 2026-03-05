@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,8 +12,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
+
+	"git.vsu.ru/ai/rspamd-cgp/config"
+	"git.vsu.ru/ai/rspamd-cgp/rspamc"
 )
 
 func TestIntegration_FullMatrix(t *testing.T) {
@@ -66,7 +71,6 @@ func TestIntegration_FullMatrix(t *testing.T) {
 			rspamdResp: `{"action":"no action","symbols":{"VIRUS":{"score":10}}}`,
 			configYaml: "authservid: \"vsu.ru\"\nhost: \"%s\"\nnotifyfrom: \"p@v.ru\"\nsymbols:\n  VIRUS: { discard: true, mirrorto: [\"quarantine@vsu.ru\"] }\n",
 			expect:     []string{"DISCARD"},
-			// В исходящем потоке (outbound) мы не зеркалируем вирусы наружу или во внутренний карантин по этой логике
 		},
 	}
 
@@ -120,7 +124,6 @@ func TestIntegration_FullMatrix(t *testing.T) {
 				scanner := bufio.NewScanner(stdout)
 				for scanner.Scan() {
 					line := scanner.Text()
-					// Нас интересует финальный ответ (начинается с SEQ, не лог)
 					if len(line) > 0 && line[0] >= '0' && line[0] <= '9' && !strings.Contains(line, "INTF") {
 						resChan <- line
 						return
@@ -157,4 +160,62 @@ func TestIntegration_FullMatrix(t *testing.T) {
 			cmd.Wait()
 		})
 	}
+}
+
+func createCgpCompliantFile(t *testing.T, qid int) string {
+	path := filepath.Join(os.TempDir(), fmt.Sprintf("%d.msg", qid))
+
+	var buf bytes.Buffer
+	// 1. Формат CGP Envelope
+	buf.WriteString("S <test@vsu.ru> SMTP [2001:67c:418:2020::21]\n")
+	buf.WriteString(fmt.Sprintf("P <%d@vsu.ru>\n", qid))
+	buf.WriteString("R <rcpt@vsu.ru>\n")
+	buf.WriteString("\n") // Конец Envelope
+
+	// 2. Тело письма (RFC5322)
+	buf.WriteString("Received: from mail.vsu.ru ([1.2.3.4] verified)\n")
+	buf.WriteString("From: <sender@vsu.ru>\n")
+	buf.WriteString("Subject: Bench\n")
+	buf.WriteString("\n")
+	buf.WriteString("Body content goes here")
+
+	os.WriteFile(path, buf.Bytes(), 0644)
+	return path
+}
+
+func BenchmarkRspamc_Scan_RealWork(b *testing.B) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"action": "no action", "score": -2.75, "symbols": {"RCPTS_DOMAINS_LOCAL": {"options": ["vsu.ru"]}}}`)
+	}))
+	defer ts.Close()
+
+	// Создаем правильный файл
+	tmpMsg := createCgpCompliantFile(nil, 555)
+	defer os.Remove(tmpMsg)
+
+	// Глушим syscall.Write
+	null, _ := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	oldStdout, _ := syscall.Dup(1)
+	syscall.Dup2(int(null.Fd()), 1)
+
+	oldArgs := os.Args
+	os.Args = []string{"rspamd-cgp"}
+	defer func() { os.Args = oldArgs }()
+
+	conf, err := config.New(os.Args[1:])
+	if err != nil {
+		os.Stderr.WriteString("config: " + err.Error() + "\n")
+		os.Exit(1)
+	}
+	config.SetGlobal(conf)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		rspamc.Scan(i, tmpMsg)
+	}
+
+	syscall.Dup2(oldStdout, 1)
 }
