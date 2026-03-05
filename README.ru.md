@@ -99,13 +99,13 @@
 BSD License, [LICENSE.md](LICENSE.md)<br/><br/>
 
 ### Автор
- 
+
 Andrey Igoshin <<ai@vsu.ru>><br/><br/>
 
 ### Ссылки
 
 * Репозиторий: <https://git.vsu.ru/ai/rspamd-cgp>
 * Сайт CommuniGate Pro: <https://communigatepro.ru>
-* Протокол Помощника: <https://old.communigatepro.ru/CommuniGatePro/russian/Helpers.html#Filters>
+* Протокол Помощника: <https://doc.communigatepro.ru/russian/development/Helpers.html#Filters>
 * Сайт Rspamd: <https://rspamd.com>
 * Протокол Rspamd: <https://rspamd.com/doc/developers/protocol.html>
