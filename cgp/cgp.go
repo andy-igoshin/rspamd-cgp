@@ -253,7 +253,7 @@ func OkSeen(seq, qid int) {
 }
 
 func Putline(a ...any) {
-	var stackBuf [128]byte
+	var stackBuf [256]byte
 	res := stackBuf[:0]
 
 	for _, arg := range a {
@@ -264,6 +264,10 @@ func Putline(a ...any) {
 			res = strconv.AppendInt(res, int64(v), 10)
 		case int64:
 			res = strconv.AppendInt(res, v, 10)
+		case float64:
+			res = strconv.AppendFloat(res, v, 'f', 2, 64)
+		case float32:
+			res = strconv.AppendFloat(res, float64(v), 'f', 2, 32)
 		case error:
 			if v != nil {
 				res = append(res, v.Error()...)
