@@ -16,8 +16,7 @@ import (
 type Duration float64
 
 func (d Duration) Append(dst []byte) []byte {
-    dst = strconv.AppendFloat(dst, float64(d), 'f', 6, 64)
-    return append(dst, " ms"...)
+    return strconv.AppendFloat(dst, float64(d), 'f', 6, 64)
 }
 
 type RspamdResponse struct {
