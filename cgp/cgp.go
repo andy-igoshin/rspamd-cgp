@@ -11,6 +11,10 @@ import (
 	"syscall"
 )
 
+type Appender interface {
+    Append([]byte) []byte
+}
+
 const (
 	submitDir = "Submitted"
 )
@@ -266,6 +270,8 @@ func Putline(a ...any) {
 			res = strconv.AppendInt(res, v, 10)
 		case float64:
 			res = strconv.AppendFloat(res, v, 'f', 2, 64)
+		case Appender:
+			res = v.Append(res)
 		case float32:
 			res = strconv.AppendFloat(res, float64(v), 'f', 2, 64)
 		case error:
