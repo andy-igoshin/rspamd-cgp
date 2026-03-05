@@ -1,20 +1,20 @@
 package rspamc
 
 import (
-	"git.vsu.ru/ai/rspamd-cgp/config"
-	"strings"
 	"testing"
+
+	"git.vsu.ru/ai/rspamd-cgp/config"
 )
 
 func TestMakeOpSum_Logic(t *testing.T) {
 	// Инициализируем конфиг для теста
 	conf := &config.Config{
 		Actions: map[string]*config.Operation{
-			"add header": {Direction: "both", Discard: false, NotifyTo: []string{"admin@vsu.ru"}},
+			"add header": {Direction: config.DirBoth, Discard: false, NotifyTo: []string{"admin@vsu.ru"}},
 		},
 		Symbols: map[string]*config.Operation{
-			"VIRUS": {Direction: "both", Discard: true, MirrorTo: []string{"quarantine@vsu.ru"}},
-			"SPAM":  {Direction: "in", Discard: false, MirrorTo: []string{"spam-box@vsu.ru"}},
+			"VIRUS": {Direction: config.DirBoth, Discard: true, MirrorTo: []string{"quarantine@vsu.ru"}},
+			"SPAM":  {Direction: config.DirIn, Discard: false, MirrorTo: []string{"spam-box@vsu.ru"}},
 		},
 	}
 	config.SetGlobal(conf)
@@ -26,7 +26,8 @@ func TestMakeOpSum_Logic(t *testing.T) {
 				"VIRUS": {Score: 10},
 			},
 		}
-		// Тестируем Inbound поток
+
+		// По умолчанию работаем как Inbound (config.outbound = false)
 		opsum, cases, _, _ := makeOpSum(res, "add header")
 
 		if opsum == nil {
@@ -43,48 +44,32 @@ func TestMakeOpSum_Logic(t *testing.T) {
 		}
 	})
 
-	t.Run("Direction awareness (Outbound)", func(t *testing.T) {
-		// Настраиваем конфиг: SPAM только для входящих, VIRUS для всех
-		conf := &config.Config{
-			Symbols: map[string]*config.Operation{
-				"SPAM":  {Direction: "in", Discard: true},
-				"VIRUS": {Direction: "both", Discard: true},
-			},
-		}
-		config.SetGlobal(conf)
+	t.Run("Direction awareness (Manual Check)", func(t *testing.T) {
+		// Для этого теста проверим логику фильтрации напрямую через isOpAccept,
+		// так как подменить глобальное состояние outbound без рефлексии или
+		// пересоздания конфига через New() сложно.
 
-		// Rspamd нашел и то, и другое
-		res := &RspamdResponse{
-			Action: "no action",
-			Symbols: map[string]*Symbol{
-				"SPAM":  {Score: 5},
-				"VIRUS": {Score: 10},
-			},
-		}
-
-		// Эмулируем ИСХОДЯЩИЙ поток (Outbound = true)
-		// Для этого нам нужно временно подменить результат config.Outbound()
-		// В вашем коде это приватное поле, поэтому мы полагаемся на то, что
-		// makeOpSum внутри вызывает isOpAccept(symCfg.Direction, config.Outbound())
-
-		// Если мы не можем легко подменить приватное поле в config,
-		// мы проверяем логику фильтрации через прямое использование:
-		opsum, cases, _, _ := makeOpSum(res, "no action")
-
-		// Если тест запущен в контексте Inbound (default):
-		// В итоговый opsum должны попасть оба символа.
-		// Если бы мы могли переключить в Outbound:
-		// Должен остаться только VIRUS.
-		if opsum == nil {
-			t.Fatal("opsum should not be nil")
+		tests := []struct {
+			name     string
+			dir      config.Direction
+			outbound bool
+			want     bool
+		}{
+			{"Inbound: In accept", config.DirIn, false, true},
+			{"Inbound: Out reject", config.DirOut, false, false},
+			{"Inbound: Both accept", config.DirBoth, false, true},
+			{"Outbound: In reject", config.DirIn, true, false},
+			{"Outbound: Out accept", config.DirOut, true, true},
+			{"Outbound: Both accept", config.DirBoth, true, true},
 		}
 
-		// Проверка логики разграничения направлений
-		if !strings.Contains(cases, "VIRUS") {
-			t.Error("VIRUS symbol should always be present (direction: both)")
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				if got := isOpAccept(tt.dir, tt.outbound); got != tt.want {
+					t.Errorf("isOpAccept(%v, %v) = %v; want %v", tt.dir, tt.outbound, got, tt.want)
+				}
+			})
 		}
-
-		t.Logf("Detected symbols for current flow: %s", cases)
 	})
 }
 

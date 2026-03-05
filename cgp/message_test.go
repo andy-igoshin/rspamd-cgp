@@ -155,7 +155,7 @@ func TestMessage_RewriteSubject(t *testing.T) {
 	}
 
 	// 3. Выполняем рерайт в директорию Submitted
-	err = msg.RewriteSubject(1, rspamdHdrs, newSubj)
+	err = msg.RewriteSubject(rspamdHdrs, newSubj)
 	if err != nil {
 		t.Fatalf("RewriteSubject failed: %v", err)
 	}
