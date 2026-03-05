@@ -1,6 +1,7 @@
 package rspamc
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,22 +13,22 @@ import (
 	"git.vsu.ru/ai/rspamd-cgp/utils"
 )
 
-func filterLocalRcpts(rcpts []string, res map[string]any) []string {
+const (
+	headerCase  string = "X-Rspamd-Case: "
+	headerJunkG string = "X-Junk-Score: [XX]"
+	headerJunkA string = "X-Junk-Score: [XXXX]"
+	headerJunkR string = "X-Junk-Score: [XXXXXXXXXX]"
+)
 
+func filterLocalRcpts(rcpts []string, res *RspamdResponse) []string {
 	filtered := make([]string, 0, len(rcpts))
 
-	symbols, ok := res["symbols"].(map[string]any)
-	if !ok {
+	if res.Symbols == nil {
 		return filtered
 	}
 
-	v, ok := symbols["RCPTS_DOMAINS_LOCAL"].(map[string]any)
-	if !ok {
-		return filtered
-	}
-
-	domains, ok := v["options"].([]any)
-	if !ok {
+	v, ok := res.Symbols["RCPTS_DOMAINS_LOCAL"]
+	if !ok || v == nil || len(v.Options) == 0 {
 		return filtered
 	}
 
@@ -36,54 +37,40 @@ func filterLocalRcpts(rcpts []string, res map[string]any) []string {
 		if at < 0 {
 			continue
 		}
+
 		rcptDomain := rcpt[at+1 : len(rcpt)-1]
-		for _, d := range domains {
-			domain, ok := d.(string)
-			if !ok {
-				continue
-			}
+		for _, domain := range v.Options {
 			if rcptDomain == domain {
 				filtered = append(filtered, rcpt)
 				break
 			}
 		}
 	}
-
 	return filtered
 }
 
-func isOpAccept(direction string, outbound bool) (a bool) {
-
-	if outbound {
-
-		if direction == "out" || direction == "both" {
-			a = true
-		}
-
-	} else {
-
-		if direction == "in" || direction == "both" {
-			a = true
-		}
+func isOpAccept(dir config.Direction, outbound bool) bool {
+	switch dir {
+	case config.DirBoth:
+		return true
+	case config.DirOut:
+		return outbound
+	case config.DirIn:
+		return !outbound
+	default:
+		return false
 	}
-
-	return
 }
 
-func makeHeaders(res map[string]any) (headers []string) {
-
-	if dkim, ok := res["dkim-signature"].(string); ok {
-		headers = append(headers, "DKIM-Signature: "+dkim)
+func makeHeaders(res *RspamdResponse) (headers []string) {
+	if res.DKIMSignature != "" {
+		headers = append(headers, "DKIM-Signature: "+res.DKIMSignature)
 	}
 
-	if milter, ok := res["milter"].(map[string]any); ok {
-		if hdrs, ok := milter["add_headers"].(map[string]any); ok {
-			for h, vh := range hdrs {
-				if vh, ok := vh.(map[string]any); ok {
-					if v, ok := vh["value"].(string); ok && v != "" {
-						headers = append(headers, h+": "+v)
-					}
-				}
+	if res.Milter != nil && res.Milter.AddHeaders != nil {
+		for h, vh := range res.Milter.AddHeaders {
+			if vh.Value != "" {
+				headers = append(headers, h+": "+vh.Value)
 			}
 		}
 	}
@@ -91,23 +78,21 @@ func makeHeaders(res map[string]any) (headers []string) {
 	return
 }
 
-func makeHeadersOutbound(res map[string]any) (headers []string) {
-
-	if _, ok := res["dkim-signature"]; ok {
-		headers = append(headers, "DKIM-Signature: "+res["dkim-signature"].(string))
+func makeHeadersOutbound(res *RspamdResponse) (headers []string) {
+	if res.DKIMSignature != "" {
+		headers = append(headers, "DKIM-Signature: "+res.DKIMSignature)
 	}
-
 	return
 }
 
-func makeOpSum(conf *config.Config, res map[string]any, action string) (*config.Operation, string, string, string) {
-
+func makeOpSum(res *RspamdResponse, action string) (*config.Operation, string, string, string) {
 	var casea []string
 	var desca []string
 	opsum := new(config.Operation)
 
-	if op, ok := conf.Actions[action]; ok {
-		if isOpAccept(conf.Actions[action].Direction, conf.Outbound) {
+	// Обработка Action
+	if op, ok := config.Action(action); ok {
+		if isOpAccept(op.Direction, config.Outbound()) {
 			opsum.Discard = op.Discard
 			opsum.MirrorTo = op.MirrorTo
 			opsum.NotifyRcpts = op.NotifyRcpts
@@ -120,46 +105,46 @@ func makeOpSum(conf *config.Config, res map[string]any, action string) (*config.
 				desca = append(desca, action)
 			}
 
-			if conf.Debug {
-				printSelectedOp("Action", action, conf.Actions[action].Direction, conf.Outbound)
+			if config.Debug() {
+				printSelectedOp("Action", action, op.Direction, config.Outbound())
 			}
 		}
 	}
 
-	for symbol, op := range conf.Symbols {
-		if isOpAccept(conf.Symbols[symbol].Direction, conf.Outbound) {
-			if v, ok := res["symbols"].(map[string]any)[symbol]; ok {
-				opsum.Discard = opsum.Discard || op.Discard
-				opsum.MirrorTo = append(opsum.MirrorTo, op.MirrorTo...)
-				opsum.NotifyRcpts = opsum.NotifyRcpts || op.NotifyRcpts
-				opsum.NotifyTo = append(opsum.NotifyTo, op.NotifyTo...)
-				casea = append(casea, symbol)
+	// Обработка Symbols
+	if res.Symbols != nil {
+		for symbol, op := range config.Symbols() {
+			if isOpAccept(op.Direction, config.Outbound()) {
+				if v, ok := res.Symbols[symbol]; ok && v != nil {
+					opsum.Discard = opsum.Discard || op.Discard
+					opsum.MirrorTo = append(opsum.MirrorTo, op.MirrorTo...)
+					opsum.NotifyRcpts = opsum.NotifyRcpts || op.NotifyRcpts
+					opsum.NotifyTo = append(opsum.NotifyTo, op.NotifyTo...)
+					casea = append(casea, symbol)
 
-				if len(op.Description) > 0 {
-					desca = append(desca, symbol+": "+op.Description)
-				} else {
-					if desc, ok := v.(map[string]any)["description"].(string); ok {
-						desca = append(desca, symbol+": "+desc)
+					if len(op.Description) > 0 {
+						desca = append(desca, symbol+": "+op.Description)
+					} else if v.Description != "" {
+						desca = append(desca, symbol+": "+v.Description)
 					} else {
 						desca = append(desca, symbol)
 					}
-				}
 
-				if conf.Debug {
-					printSelectedOp("Symbol", symbol, conf.Symbols[symbol].Direction, conf.Outbound)
+					if config.Debug() {
+						printSelectedOp("Symbol", symbol, op.Direction, config.Outbound())
+					}
 				}
 			}
 		}
 	}
 
 	if len(casea) > 0 {
-
 		var sb strings.Builder
 		sb.Grow(256)
 
+		// Формирования casework
 		sb.WriteString("discard ")
 		sb.WriteString(strconv.FormatBool(opsum.Discard))
-
 		sb.WriteString("; notifyrcpts ")
 		sb.WriteString(strconv.FormatBool(opsum.NotifyRcpts))
 
@@ -181,111 +166,169 @@ func makeOpSum(conf *config.Config, res map[string]any, action string) (*config.
 	return nil, "", "", ""
 }
 
-func printMsgInfo(from string, rcpts []string, auth string, ip string, helo string, hostname string,
-	qid int, seen bool) {
-
-	fmt.Fprintln(os.Stderr, "from:    ", from)
-	fmt.Fprintln(os.Stderr, "rcpts:   ", rcpts)
-	fmt.Fprintln(os.Stderr, "ip:      ", ip)
-	fmt.Fprintln(os.Stderr, "helo:    ", helo)
-	fmt.Fprintln(os.Stderr, "hostname:", hostname)
-	fmt.Fprintln(os.Stderr, "qid:     ", qid)
-	if len(auth) > 0 {
-		fmt.Fprintln(os.Stderr, "auth:    ", auth)
-	} else {
-		fmt.Fprintln(os.Stderr, "auth:     not authenticated")
-	}
-	fmt.Fprintln(os.Stderr, "seen:    ", seen)
-	fmt.Fprintln(os.Stderr, "")
-}
-
-func printSelectedOp(optype, opname, direction string, outbound bool) {
+func printSelectedOp(optype, opname string, dir config.Direction, outbound bool) {
 
 	if outbound {
-		fmt.Fprintf(os.Stderr, "%s '%s' selected for outbound flow: direction %s\n", optype, opname, direction)
+		fmt.Fprintf(os.Stderr, "%s '%s' selected for outbound flow: direction %s\n", optype, opname, dir.String())
 	} else {
-		fmt.Fprintf(os.Stderr, "%s '%s' selected for inbound flow: direction %s\n", optype, opname, direction)
+		fmt.Fprintf(os.Stderr, "%s '%s' selected for inbound flow: direction %s\n", optype, opname, dir.String())
 	}
 }
 
-func printResponse(v any) {
-	printed, _ := json.MarshalIndent(v, "", "  ")
-	os.Stderr.Write(printed)
-	os.Stderr.Write([]byte("\n"))
+func printResponse(debugBuf *bytes.Buffer) {
+	var pretty bytes.Buffer
+	if err := json.Indent(&pretty, debugBuf.Bytes(), "", "  "); err == nil {
+		os.Stderr.Write(pretty.Bytes())
+		os.Stderr.Write([]byte("\n"))
+	}
 }
 
-func procAction(seq int, qid int, opsum *config.Operation, res map[string]any,
-	headers []string, hci string, from string, rcpts []string, body []byte, notifyfrom string,
-	desc string, outbound bool, t int) {
+// procAction обрабатывает вердикт Rspamd согласно BNF:
+// SEQ [ADDHEADER "h"] [MIRRORTO "a"] {OK|DISCARD}
+func procAction(seq int, msg *cgp.Message, opsum *config.Operation, res *RspamdResponse,
+	headers []string, hci, notifyfrom, desc string, t int) {
 
+	var actualMirror []string
+	var discard bool
+
+	// Уведомления
+	procNotifications(seq, msg, opsum, res, hci, notifyfrom, desc)
+
+	// Определение намерения
 	if opsum != nil {
-
-		if opsum.Discard {
-			cgp.Putline("* %d [%d]: Action: discard; from %s, rcpts %s\n", seq, qid, from, strings.Join(rcpts, ","))
-			cgp.AddHeaderWithMirrorTo(seq, qid, opsum.MirrorTo, opsum.Discard, headers, body, outbound)
-		} else {
-			to := utils.DiffSlice(opsum.MirrorTo, rcpts)
-			cgp.AddHeaderWithMirrorTo(seq, qid, to, opsum.Discard, headers, body, outbound)
-		}
-
-		if len(opsum.NotifyTo) > 0 || opsum.NotifyRcpts {
-			if opsum.NotifyRcpts {
-				to := make([]string, 0, len(opsum.NotifyTo)+len(rcpts))
-				to = append(to, opsum.NotifyTo...)
-				rcpts_filtered := filterLocalRcpts(rcpts, res)
-				to = append(to, rcpts_filtered...)
-				to = utils.UniqueSliceElementsNonEmpty(to)
-				cgp.NotifyTo(seq, qid, to, hci, from, rcpts, body, notifyfrom, desc)
-			} else {
-				cgp.NotifyTo(seq, qid, opsum.NotifyTo, hci, from, rcpts, body, notifyfrom, desc)
-			}
-		}
-
+		discard = opsum.Discard
+		actualMirror = opsum.MirrorTo
 	} else {
+		discard = (t == 2)
+	}
 
-		switch t {
-		case 0:
-			if len(headers) > 0 {
-				cgp.AddHeader(seq, headers)
-			} else {
-				cgp.Ok(seq)
-			}
-
-		case 1:
-			cgp.AddHeader(seq, headers)
-
-		case 2:
-			cgp.Discard(seq, qid, from, rcpts)
+	// Валидация MirrorTo (Seen tag)
+	if len(actualMirror) > 0 {
+		if seenHdr := msg.MakeSeen(); seenHdr != "" {
+			headers = append(headers, seenHdr)
+		} else {
+			cgp.Putline("* ", seq, " [", msg.QID, "]: warning: MirrorTo skipped (no Seen tag)")
+			actualMirror = nil
 		}
+	}
+
+	// Оптимизация ADDHEADER
+	if discard && len(actualMirror) == 0 {
+		headers = nil
+	}
+
+	// Финальный ответ
+	cgp.MirrorTo(seq, msg, actualMirror, headers, discard)
+}
+
+// procActionRS обрабатывает Rewrite Subject через создание .sub файла в Submitted/
+func procActionRS(seq int, msg *cgp.Message, opsum *config.Operation, res *RspamdResponse,
+	headers []string, hci, notifyfrom, desc string) {
+
+	// Уведомления
+	procNotifications(seq, msg, opsum, res, hci, notifyfrom, desc)
+
+	seenHdr := msg.MakeSeen()
+
+	// FALLBACK: Метки нет — НИКАКИХ MIRRORTO.
+	// Мы только модифицируем текущее письмо (ADDHEADER) и отдаем OK.
+	if seenHdr == "" {
+		cgp.Putline("* ", seq, " [", msg.QID, "]: Warning: RewriteSubject fallback (no Seen tag). MirrorTo suppressed.")
+
+		// Добавляем заголовок с предложенной темой к оригиналу
+		headers = append(headers, "X-Spam-Subject: "+res.Subject)
+
+		// Явный вызов метода, не имеющего отношения к дублированию писем
+		cgp.AddHeader(seq, headers)
+		return
+	}
+
+	// ШТАТНЫЙ РЕЖИМ: Метка есть, можем безопасно делать MIRRORTO
+	headers = append(headers, seenHdr)
+
+	// Пишем новый файл в Submitted/
+	if err := msg.RewriteSubject(headers, res.Subject); err != nil {
+		cgp.Failure(seq, msg.QID, fmt.Errorf("RewriteSubject failed: %v", err))
+		return
+	}
+
+	// Удаляем оригинал.
+	// Если в opsum был MirrorTo, он уйдет в этой же строке (SEQ [MIRRORTO] DISCARD).
+	var actualMirror []string
+	if opsum != nil {
+		actualMirror = opsum.MirrorTo
+	}
+
+	// Финальный ответ
+	cgp.MirrorTo(seq, msg, actualMirror, headers, true)
+}
+
+func procActionSwitch(seq int, msg *cgp.Message, opsum *config.Operation, res *RspamdResponse, headers []string, hci, action, desc string) {
+	outbound := config.Outbound()
+	notifyFrom := config.NotifyFrom()
+
+	switch action {
+	case "no action":
+		procAction(seq, msg, opsum, res, headers, hci, notifyFrom, desc, 0)
+
+	case "discard":
+		if !outbound {
+			headers = append(headers, headerJunkR)
+		}
+		procAction(seq, msg, opsum, res, headers, hci, notifyFrom, desc, 2)
+
+	case "quarantine", "reject":
+		if !outbound {
+			headers = append(headers, headerJunkR)
+		}
+		procAction(seq, msg, opsum, res, headers, hci, notifyFrom, desc, 1)
+
+	case "rewrite subject":
+		if res.Subject != "" {
+			procActionRS(seq, msg, opsum, res, headers, hci, notifyFrom, desc)
+		} else {
+			if !outbound {
+				headers = append(headers, headerJunkA)
+			}
+			procAction(seq, msg, opsum, res, headers, hci, notifyFrom, desc, 1)
+		}
+
+	case "add header":
+		if !outbound {
+			headers = append(headers, headerJunkA)
+		}
+		procAction(seq, msg, opsum, res, headers, hci, notifyFrom, desc, 1)
+
+	case "greylist", "soft reject":
+		if !outbound {
+			headers = append(headers, headerJunkG)
+		}
+		procAction(seq, msg, opsum, res, headers, hci, notifyFrom, desc, 1)
+
+	default:
+		cgp.Failure(seq, msg.QID, fmt.Errorf("Unknown action: %v", action))
 	}
 }
 
-func procActionRS(seq int, qid int, opsum *config.Operation, res map[string]any,
-	headers []string, hci string, subject string, from string, rcpts []string, body []byte,
-	notifyfrom string, desc string, outbound bool) {
+func procNotifications(seq int, msg *cgp.Message, opsum *config.Operation, res *RspamdResponse, hci, notifyfrom, desc string) {
+	if opsum == nil || (!opsum.NotifyRcpts && len(opsum.NotifyTo) == 0) {
+		return
+	}
 
-	err := cgp.RewriteSubject(seq, headers, subject, qid, from, rcpts, body)
-	if err != nil {
-		cgp.Failure(seq, qid, err)
-	} else {
+	// Собираем всех кандидатов на получение уведомления
+	to := make([]string, 0, len(opsum.NotifyTo)+len(msg.Rcpts))
+	to = append(to, opsum.NotifyTo...)
 
-		if opsum != nil {
-			cgp.AddHeaderWithMirrorTo(seq, qid, opsum.MirrorTo, opsum.Discard, headers, body, outbound)
-			if len(opsum.NotifyTo) > 0 || opsum.NotifyRcpts {
-				if opsum.NotifyRcpts {
-					to := make([]string, 0, len(opsum.NotifyTo)+len(rcpts))
-					to = append(to, opsum.NotifyTo...)
-					rcpts_filtered := filterLocalRcpts(rcpts, res)
-					to = append(to, rcpts_filtered...)
-					to = utils.UniqueSliceElementsNonEmpty(to)
-					cgp.NotifyTo(seq, qid, to, hci, from, rcpts, body, notifyfrom, desc)
-				} else {
-					cgp.NotifyTo(seq, qid, opsum.NotifyTo, hci, from, rcpts, body, notifyfrom, desc)
-				}
-			}
+	if opsum.NotifyRcpts {
+		// Фильтруем только локальных или специфичных получателей на основе вердикта
+		rcptsFiltered := filterLocalRcpts(msg.Rcpts, res)
+		to = append(to, rcptsFiltered...)
+	}
 
-		} else {
-			cgp.Discard(seq, qid, from, rcpts)
-		}
+	// Убираем дубликаты и пустые строки перед отправкой
+	to = utils.UniqueSliceElementsNonEmpty(to)
+
+	if len(to) > 0 && notifyfrom != "" {
+		cgp.NotifyTo(seq, msg, to, hci, notifyfrom, desc)
 	}
 }

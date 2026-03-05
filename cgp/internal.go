@@ -3,13 +3,10 @@ package cgp
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"strings"
-
-	"git.vsu.ru/ai/rspamd-cgp/utils"
+	"unicode/utf8"
 )
 
 func extractAngle(line []byte) (string, bool) {
@@ -24,209 +21,115 @@ func extractAngle(line []byte) (string, bool) {
 	return string(line[s : s+e+1]), true
 }
 
-func getHeader(m *bufio.Reader) (hdr string, err error) {
-
-	var c byte
-	var line []byte
-
-	var b strings.Builder
-	b.Grow(384)
-
+func getHeader(m *bufio.Reader, buf *bytes.Buffer) error {
+	buf.Reset()
 	for {
-		c, err = m.ReadByte()
+		line, err := m.ReadSlice('\n')
 		if err != nil {
+			if err == bufio.ErrBufferFull {
+				buf.Write(line)
+				// Защита от бесконечных заголовков
+				if buf.Len() > 64*1024 {
+					return fmt.Errorf("header too long")
+				}
+				continue
+			}
+			if len(line) > 0 {
+				buf.Write(line)
+			}
 			if err == io.EOF {
-				if c == 0 {
-					break
-				} else {
-					err = nil
-				}
-			} else {
-				return
+				break
 			}
+			return err
 		}
+		buf.Write(line)
 
-		if b.Len() == 0 {
-
-			if c == ' ' || c == '\t' {
-				err = m.UnreadByte()
-				if err != nil {
-					return
-				}
-				err = fmt.Errorf("bad header")
-				return
-
-			} else if c == '\n' {
-
-				b.WriteByte(c)
-				break
-
-			} else {
-
-				b.WriteByte(c)
-
-				line, err = m.ReadSlice('\n')
-				if err != nil {
-					if err == io.EOF {
-						err = nil
-					} else {
-						return
-					}
-				}
-
-				b.Write(line)
-			}
-
-		} else {
-
-			if c == ' ' || c == '\t' {
-
-				b.WriteByte(c)
-
-				line, err = m.ReadSlice('\n')
-				if err != nil {
-					if err == io.EOF {
-						err = nil
-					} else {
-						return
-					}
-				}
-
-				b.Write(line)
-
-			} else {
-				err = m.UnreadByte()
-				if err != nil {
-					return
-				}
-				break
-			}
+		next, err := m.Peek(1)
+		if err != nil {
+			break // EOF
+		}
+		if next[0] != ' ' && next[0] != '\t' {
+			break
 		}
 	}
-
-	hdr = b.String()
-
-	return
+	return nil
 }
 
-func getHelo(body []byte) (helo string) {
+func getHelo(hdr []byte) string {
+	if !bytes.HasPrefix(hdr, []byte("Received: from ")) {
+		return ""
+	}
 
-	var hdr string
-	var err error
+	data := hdr[15:]
 
-	m := bufio.NewReader(bytes.NewReader(body))
-
-	for {
-
-		hdr, err = m.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-				if len(hdr) == 0 {
-					break
-				}
-			} else {
-				return
-			}
-		}
-
-		if hdr == "\n" {
-			// конец заголовка
-			break
-		}
-
-		if strings.HasPrefix(hdr, recvHdr) {
-			if s := reHELO1.FindAllStringSubmatch(hdr, -1); s != nil {
-				helo = s[0][1]
-			} else if s := reHELO2.FindAllStringSubmatch(hdr, -1); s != nil {
-				helo = s[0][1]
-			}
-			break
+	// Received: from muus52.sndsy.ru ([185.235.30.52] verified)
+	if idxOpen := bytes.Index(data, []byte(" ([")); idxOpen > 0 {
+		if bytes.Contains(data[idxOpen:], []byte(" verified)")) {
+			return string(bytes.TrimSpace(data[:idxOpen]))
 		}
 	}
 
-	return
+	// Received: from [77.83.39.182] (HELO poseidonms.com)
+	// Received: from [10.19.5.40] (account test@domain.name HELO test.domain.name)
+	if idxHelo := bytes.Index(data, []byte("HELO ")); idxHelo > 0 {
+		prevChar := data[idxHelo-1]
+		if prevChar == ' ' || prevChar == '(' {
+			remaining := data[idxHelo+5:]
+			if end := bytes.IndexByte(remaining, ')'); end != -1 {
+				return string(bytes.TrimSpace(remaining[:end]))
+			}
+		}
+	}
+
+	return ""
 }
 
 func isSeen(m *bufio.Reader) (seen bool, err error) {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	defer putBuffer(buf)
 
 	var found bool
-	var seenSum string
-	var hdr string
+	var seenSum []byte
 
 	for {
-
-		hdr, err = getHeader(m)
+		err = getHeader(m, buf)
 		if err != nil {
 			if err == io.EOF {
 				err = nil
-				if len(hdr) == 0 {
-					break
-				}
-			} else {
-				return
 			}
+			return
 		}
 
-		if hdr == "\n" {
-			// конец заголовка
+		hdr := buf.Bytes()
+
+		if len(hdr) == 0 || (len(hdr) == 1 && hdr[0] == '\n') ||
+			(len(hdr) == 2 && hdr[0] == '\r' && hdr[1] == '\n') {
 			break
 		}
 
 		if !found {
-
-			if seenSum, found = strings.CutPrefix(hdr, seenHdr); found {
-				seenSum = strings.TrimSpace(seenSum)
+			if bytes.HasPrefix(hdr, bSeenHdr) {
+				val := bytes.TrimSpace(hdr[len(bSeenHdr):])
+				seenSum = make([]byte, len(val))
+				copy(seenSum, val)
+				found = true
 			}
-
-		} else if strings.HasPrefix(hdr, recvHdr) {
-
-			bs := sha256.Sum224([]byte(utils.NoSpace(hdr)))
-			sum := hex.EncodeToString(bs[:])
-			if seenSum == sum {
+		} else if bytes.HasPrefix(hdr, bRecvHdr) {
+			if hashReceived(hdr) == string(seenSum) {
 				seen = true
+				break
 			}
-
-			break
 		}
 	}
-
 	return
 }
 
-func makeSeen(body []byte) (seenhdr string, err error) {
-
-	var hdr string
-
-	m := bufio.NewReader(bytes.NewReader(body))
-
-	for {
-
-		hdr, err = getHeader(m)
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-				if len(hdr) == 0 {
-					break
-				}
-			} else {
-				return
-			}
-		}
-
-		if hdr == "\n" {
-			// конец заголовка
-			break
-		}
-
-		if strings.HasPrefix(hdr, recvHdr) {
-			bs := sha256.Sum224([]byte(utils.NoSpace(hdr)))
-			seenhdr = seenHdr + " " + hex.EncodeToString(bs[:])
-			break
-		}
+func putBuffer(buf *bytes.Buffer) {
+	if buf.Cap() > 4096 {
+		return
 	}
-
-	return
+	buf.Reset()
+	bufferPool.Put(buf)
 }
 
 func replaceSpecChars(msg string) string {
@@ -264,4 +167,27 @@ func replaceSpecChars(msg string) string {
 	}
 
 	return sb.String()
+}
+
+func replaceSpecCharsBuf(buf *bytes.Buffer, s string) {
+	for _, r := range s {
+		switch r {
+		case '\\':
+			buf.WriteString("\\\\")
+		case '\n':
+			buf.WriteString("\\e")
+		case '\t':
+			buf.WriteString("\\t")
+		case '"':
+			buf.WriteString("\\\"")
+		case '\r', 0x00:
+			continue
+		default:
+			if r < utf8.RuneSelf {
+				buf.WriteByte(byte(r))
+			} else {
+				buf.WriteRune(r)
+			}
+		}
+	}
 }

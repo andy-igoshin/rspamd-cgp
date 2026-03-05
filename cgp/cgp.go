@@ -3,102 +3,91 @@ package cgp
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"strconv"
-	"strings"
+	"sync"
 	"syscall"
-
-	"git.vsu.ru/ai/rspamd-cgp/utils"
 )
 
-const recvHdr = "Received:"
-const seenHdr = "X-Rspamd-Seen:"
-const subjHdr = "Subject:"
-const submitDir = "Submitted"
+const (
+	submitDir = "Submitted"
+)
 
-var reHELO1 *regexp.Regexp
-var reHELO2 *regexp.Regexp
-var reMD *regexp.Regexp
-var reSELF *regexp.Regexp
-var reSMTP *regexp.Regexp
-var protocol int
-var	stdoutFd int
+var (
+	protocol int = 4
+	stdoutFd int
+)
 
-func init() {
-	// Received: from muus52.sndsy.ru ([185.235.30.52] verified)
-	reHELO1 = regexp.MustCompile(`^Received: from (\S+) \(.* ?\[\S+\] verified\)`)
-	// Received: from [10.19.5.40] (account edu@vsu.ru HELO edu.vsu.ru)
-	reHELO2 = regexp.MustCompile(`^Received: from \[\S+\] \(.*(?: ?HELO (\S+))\)`)
-	reMD = regexp.MustCompile(`^\s+DomainName\s+=\s+([^;]+);`)
-	reSELF = regexp.MustCompile(`^S (?:<([^>]+)> )?(ALARM|DSN|GROUP|ICAL|LIST|LSTM|LSTO|MDN|PBX|PIPE|RULE|WEBUSER) \[0\.0\.0\.0\]`)
-	reSMTP = regexp.MustCompile(`^S (?:<([^>]+)> )?(?:SMTP|HTTPU?|AIRSYNC|IMAP|RPOP|XIMSS) \[([0-9a-f.:]+)\]`)
+var bufferPool = sync.Pool{
+	New: func() any { return bytes.NewBuffer(make([]byte, 0, 4096)) },
 }
 
 func AddHeader(seq int, headers []string) {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	defer putBuffer(buf)
 
-	hdrs := replaceSpecChars(strings.Join(headers, "\n"))
+	buf.WriteString(strconv.Itoa(seq))
+	buf.WriteString(" ADDHEADER \"")
 
-	if protocol >= 4 {
-		Putline("%d ADDHEADER \"%s\" OK\n", seq, hdrs)
-	} else {
-		Putline("%d ADDHEADER \"%s\"\n", seq, hdrs)
+	for i, h := range headers {
+		replaceSpecCharsBuf(buf, h)
+		if i < len(headers)-1 {
+			buf.WriteString("\\e")
+		}
 	}
+
+	buf.WriteString("\" OK")
+
+	res := buf.Bytes()
+	length := len(res)
+
+	if length > 4096 || (length == 4096 && res[length-1] != '\n') {
+		Failure(seq, 0, fmt.Errorf("AddHeader: result exceeds 4k limit"))
+		return
+	}
+
+	if length > 0 && res[length-1] != '\n' {
+		buf.WriteByte('\n')
+		res = buf.Bytes()
+	}
+
+	syscall.Write(stdoutFd, res)
 }
 
-func AddHeaderWithMirrorTo(seq int, qid int, to []string, discard bool, headers []string,
-	body []byte, outbound bool) {
-
-	if !outbound || len(to) > 0 {
-		seenhdr, err := makeSeen(body)
-		if err != nil {
-			Failure(seq, qid, err)
-			return
-		}
-		headers = append(headers, seenhdr)
-	}
-
-	hdrs := replaceSpecChars(strings.Join(headers, "\n"))
-
-	if protocol >= 4 {
-
-		if len(to) > 0 {
-			mirrorTo := make([]string, 0, len(to))
-			for _, m := range to {
-				mirrorTo = append(mirrorTo, "MIRRORTO \""+m+"\"")
-			}
-
-			if discard {
-				Putline("%d ADDHEADER \"%s\" %s DISCARD\n", seq, hdrs, strings.Join(mirrorTo, " "))
-			} else {
-				Putline("%d ADDHEADER \"%s\" %s OK\n", seq, hdrs, strings.Join(mirrorTo, " "))
-			}
-
-		} else {
-			if discard {
-				Putline("%d ADDHEADER \"%s\" DISCARD\n", seq, hdrs)
-			} else {
-				Putline("%d ADDHEADER \"%s\" OK\n", seq, hdrs)
-			}
-		}
-
-	} else {
-		Putline("%d ADDHEADER \"%s\"\n", seq, hdrs)
-	}
-}
-
-func Discard(seq int, qid int, from string, rcpts []string) {
-	Putline("* %d [%d]: Action: discard; from %s, rcpts %s\n", seq, qid, from, strings.Join(rcpts, ","))
-	Putline("%d DISCARD\n", seq)
+func Discard(seq int) {
+	var buf [64]byte
+	b := strconv.AppendInt(buf[:0], int64(seq), 10)
+	b = append(b, " DISCARD\n"...)
+	syscall.Write(stdoutFd, b)
 }
 
 func Failure(seq, qid int, err error) {
-	Putline("* %d [%d]: %s\n", seq, qid, err)
-	Putline("%d FAILURE\n", seq)
+	var buf [512]byte
+	b := buf[:0]
+
+	b = append(b, "* "...)
+	b = strconv.AppendInt(b, int64(seq), 10)
+	b = append(b, " ["...)
+	b = strconv.AppendInt(b, int64(qid), 10)
+	b = append(b, "]: "...)
+	if err != nil {
+		b = append(b, err.Error()...)
+	} else {
+		b = append(b, "unknown error"...)
+	}
+
+	length := len(b)
+	if length > 0 && b[length-1] != '\n' {
+		b = append(b, '\n')
+	}
+	syscall.Write(stdoutFd, b)
+
+	b = buf[:0]
+	b = strconv.AppendInt(b, int64(seq), 10)
+	b = append(b, " FAILURE\n"...)
+	syscall.Write(stdoutFd, b)
 }
 
 // InitStdoutFd инициализирует системный дескриптор для ответов серверу.
@@ -121,225 +110,188 @@ func InitStdoutFd() error {
 }
 
 func Intf(seq int, ver string) {
-	protocol, _ = strconv.Atoi(ver)
-	Putline("%d INTF %d\n", seq, protocol)
+	var buf [64]byte
+	b := strconv.AppendInt(buf[:0], int64(seq), 10)
+	b = append(b, " INTF "...)
+	b = append(b, strconv.FormatInt(int64(protocol), 10)...)
+	b = append(b, '\n')
+	syscall.Write(stdoutFd, b)
 }
 
-func MainDomain() (domain string, err error) {
-
+func MainDomain() (string, error) {
 	h, err := os.Open("Settings/Main.settings")
 	if err != nil {
-		return
+		return "", err
 	}
 	defer h.Close()
 
-	var line []byte
-
-	for m := bufio.NewReader(h); ; {
-
-		line, err = m.ReadSlice('\n')
-		if err != nil {
-			return
-		}
-
-		if s := reMD.FindAllStringSubmatch(string(line), -1); s != nil {
-			domain = s[0][1]
-			break
-		}
-	}
-
-	return
-}
-
-func Message(filename string) (from string, rcpts []string, auth string, ip string, helo string,
-	hostname string, qid int, body []byte, seen bool, err error) {
-
-	start := strings.LastIndexByte(filename, '/') + 1
-	end := strings.LastIndexByte(filename, '.')
-	if end <= start {
-		err = fmt.Errorf("invalid filename: %s", filename)
-		return
-	}
-	qid, err = strconv.Atoi(filename[start:end])
-	if err != nil {
-		return
-	}
-
-	h, err := os.Open(filename)
-	if err != nil {
-		return
-	}
-	defer h.Close()
-
-	var line []byte
-	var pos int64
-
-	m := bufio.NewReader(h)
+	rd := bufio.NewReader(h)
+	key := []byte("DomainName")
 
 	for {
-
-		line, err = m.ReadSlice('\n')
-		if err != nil {
-			if err == io.EOF {
-				err = fmt.Errorf("unexpected end of message")
-			}
-			return
+		line, err := rd.ReadSlice('\n')
+		if err != nil && err != io.EOF {
+			return "", err
 		}
 
-		pos += int64(len(line))
+		// Ищем вхождение DomainName
+		idxKey := bytes.Index(line, key)
+		if idxKey == -1 {
+			if err == io.EOF {
+				break
+			}
+			continue
+		}
 
-		if string(line) == "\n" {
+		// Проверяем, что перед ключом стоит разделитель (начало строки, пробел, { или ;)
+		if idxKey > 0 {
+			prev := line[idxKey-1]
+			if prev != ' ' && prev != '\t' && prev != '{' && prev != ';' {
+				if err == io.EOF {
+					break
+				}
+				continue
+			}
+		}
+
+		// Ищем '=' после ключа
+		lineAfterKey := line[idxKey+len(key):]
+		idxEq := bytes.IndexByte(lineAfterKey, '=')
+		if idxEq == -1 {
+			if err == io.EOF {
+				break
+			}
+			continue
+		}
+
+		// Ищем ';' после '='
+		idxSemi := bytes.IndexByte(lineAfterKey[idxEq:], ';')
+		if idxSemi == -1 {
+			if err == io.EOF {
+				break
+			}
+			continue
+		}
+
+		// Извлекаем и чистим значение
+		rawVal := lineAfterKey[idxEq+1 : idxEq+idxSemi]
+		cleanVal := bytes.Trim(rawVal, " \t\r\n\"")
+
+		if len(cleanVal) > 0 {
+			return string(cleanVal), nil
+		}
+
+		if err == io.EOF {
 			break
 		}
+	}
 
-		switch line[0] {
-		case 'P':
-			if v, ok := extractAngle(line); ok {
-				from = v
-			}
+	return "", fmt.Errorf("DomainName not found in settings")
+}
 
-		case 'R':
-			if v, ok := extractAngle(line); ok {
-				rcpts = append(rcpts, v)
-			}
+func MirrorTo(seq int, m *Message, to []string, headers []string, discard bool) {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	defer putBuffer(buf)
 
-		case 'S':
-			if s := reSMTP.FindAllStringSubmatch(string(line), -1); s != nil {
-				auth = s[0][1]
-				ip = s[0][2]
-				hostname = getHostname(ip)
-			} else if s := reSELF.FindAllStringSubmatch(string(line), -1); s != nil {
-				if len(s[0][1]) > 0 {
-					auth = s[0][1]
-				} else {
-					auth = s[0][2] + "@trusted"
-				}
-				ip = "127.2.4.7"
+	// SEQ [ADDHEADER "h1\eh2"] [MIRRORTO "rcpt"] {DISCARD|OK}
+	buf.WriteString(strconv.Itoa(seq))
+
+	if len(headers) > 0 {
+		buf.WriteString(" ADDHEADER \"")
+		for i, h := range headers {
+			replaceSpecCharsBuf(buf, h)
+			if i < len(headers)-1 {
+				buf.WriteString("\\e")
 			}
 		}
+		buf.WriteString("\"")
 	}
 
-	seen, err = isSeen(m)
-	if err != nil || seen {
+	for _, rcpt := range to {
+		buf.WriteString(" MIRRORTO \"")
+		replaceSpecCharsBuf(buf, rcpt)
+		buf.WriteString("\"")
+	}
+
+	if discard {
+		buf.WriteString(" DISCARD")
+	} else {
+		buf.WriteString(" OK")
+	}
+
+	res := buf.Bytes()
+	if len(res) > 4096 {
+		Failure(seq, m.QID, fmt.Errorf("MirrorTo: result exceeds 4k limit (%d bytes)", len(res)))
 		return
 	}
 
-	fi, err := h.Stat()
-	if err != nil {
-		return
+	if len(res) > 0 && res[len(res)-1] != '\n' {
+		buf.WriteByte('\n')
+		res = buf.Bytes()
 	}
 
-	_, err = h.Seek(pos, io.SeekStart)
-	if err != nil {
-		return
-	}
-
-	body = make([]byte, fi.Size()-pos)
-	n, err := h.Read(body)
-	if err != nil {
-		return
-	}
-
-	helo = getHelo(body)
-
-	rcpts = utils.UniqueSliceElementsNonEmpty(rcpts)
-
-	if from == "" || len(rcpts) == 0 || n < len(body) {
-		err = fmt.Errorf("cgp.Message() error: from='%s', len(to)=%d, auth='%s' ip='%s', size=%d/%d", from, len(rcpts), auth, ip, len(body), n)
-	}
-
-	return
+	syscall.Write(stdoutFd, res)
 }
 
 func Ok(seq int) {
-	Putline("%d OK\n", seq)
+	var buf [64]byte
+	b := strconv.AppendInt(buf[:0], int64(seq), 10)
+	b = append(b, " OK\n"...)
+	syscall.Write(stdoutFd, b)
 }
 
 func OkSeen(seq, qid int) {
-	Putline("* %d [%d]: Already seen by Rspamd\n", seq, qid)
-	Putline("%d OK\n", seq)
+	var buf [128]byte
+	b := buf[:0]
+	b = append(b, "* "...)
+	b = strconv.AppendInt(b, int64(seq), 10)
+	b = append(b, " ["...)
+	b = strconv.AppendInt(b, int64(qid), 10)
+	b = append(b, "]: Already seen by Rspamd\n"...)
+	syscall.Write(stdoutFd, b)
+	Ok(seq)
 }
 
-func Putline(format string, a ...interface{}) {
-	s := fmt.Sprintf(format, a...)
-	syscall.Write(stdoutFd, []byte(s))
+func Putline(a ...any) {
+	var stackBuf [128]byte
+	res := stackBuf[:0]
+
+	for _, arg := range a {
+		switch v := arg.(type) {
+		case string:
+			res = append(res, v...)
+		case int:
+			res = strconv.AppendInt(res, int64(v), 10)
+		case int64:
+			res = strconv.AppendInt(res, v, 10)
+		case error:
+			if v != nil {
+				res = append(res, v.Error()...)
+			}
+		case []byte:
+			res = append(res, v...)
+		default:
+			res = append(res, fmt.Sprint(v)...)
+		}
+	}
+
+	length := len(res)
+
+	if length > 4096 || (length == 4096 && length > 0 && res[length-1] != '\n') {
+		os.Stderr.WriteString("Putline: result exceeds 4k limit\n")
+		return
+	}
+
+	if length > 0 && res[length-1] != '\n' {
+		res = append(res, '\n')
+	}
+
+	syscall.Write(stdoutFd, res)
 }
 
 func Reject(seq int) {
-	Putline("%d REJECT Try again later\n", seq)
-}
-
-func RewriteSubject(seq int, headers []string, subject string, qid int, from string, rcpts []string, body []byte) (err error) {
-
-	var firstRecv bool = true
-	var hdr string
-	var pos int = 0
-
-	filename := submitDir + "/" + strconv.Itoa(qid) + "rs.sub"
-	filetemp := strings.Replace(filename, "sub", "tmp", 1)
-
-	fh, err := os.Create(filetemp)
-	if err != nil {
-		return
-	}
-	defer fh.Close()
-
-	fh.WriteString("Return-Path: " + from + "\n")
-
-	for _, rcpt := range rcpts {
-		fh.WriteString("Envelope-To: " + rcpt + "\n")
-	}
-
-	fh.WriteString(strings.Join(headers, "\n") + "\n")
-
-	m := bufio.NewReader(bytes.NewReader(body))
-
-	for {
-
-		hdr, err = getHeader(m)
-		if err == io.EOF {
-			err = nil
-			if len(hdr) == 0 {
-				break
-			}
-		}
-		if err != nil {
-			return
-		}
-
-		pos += len(hdr)
-
-		if hdr == "\n" {
-			// конец RFC5322 заголовка
-			fh.WriteString(hdr)
-			break
-		}
-
-		if firstRecv && strings.HasPrefix(hdr, recvHdr) {
-
-			bs := sha256.Sum224([]byte(utils.NoSpace(hdr)))
-			sum := hex.EncodeToString(bs[:])
-
-			fh.WriteString(seenHdr + " " + sum + "\n")
-			fh.WriteString(hdr)
-
-			firstRecv = false
-			continue
-		}
-
-		if strings.HasPrefix(hdr, subjHdr) {
-			fh.WriteString(subjHdr + " " + subject + "\n")
-			continue
-		}
-
-		fh.WriteString(hdr)
-	}
-
-	fh.Write(body[pos:])
-
-	if err = fh.Close(); err != nil {
-		return
-	}
-
-	return os.Rename(filetemp, filename)
+	var buf [64]byte
+	b := strconv.AppendInt(buf[:0], int64(seq), 10)
+	b = append(b, " REJECT Try again later\n"...)
+	syscall.Write(stdoutFd, b)
 }

@@ -13,161 +13,139 @@ import (
 	"git.vsu.ru/ai/rspamd-cgp/config"
 )
 
-const (
-	headerCase  string = "X-Rspamd-Case: "
-	headerJunkG string = "X-Junk-Score: [XX]"
-	headerJunkA string = "X-Junk-Score: [XXXX]"
-	headerJunkR string = "X-Junk-Score: [XXXXXXXXXX]"
-)
+type RspamdResponse struct {
+	Action        string  `json:"action"`
+	Score         float64 `json:"score"`
+	RequiredScore float64 `json:"required_score"`
+	TimeReal      float64 `json:"time_real"`
+	Subject       string  `json:"subject,omitempty"`
+	DKIMSignature string  `json:"dkim-signature,omitempty"`
+
+	// Milter может отсутствовать (nil), если нет действий
+	Milter *struct {
+		AddHeaders map[string]struct {
+			Value string `json:"value"`
+		} `json:"add_headers"`
+	} `json:"milter,omitempty"`
+
+	// Symbols могут отсутствовать (nil)
+	Symbols map[string]*Symbol `json:"symbols,omitempty"`
+}
+
+type Symbol struct {
+	Score       float64  `json:"score"`
+	Description string   `json:"description,omitempty"`
+	Options     []string `json:"options,omitempty"`
+}
 
 var (
 	client    *http.Client
 	clientOne sync.Once
 )
 
-func Scan(conf *config.Config, seq int, filename string) {
+func Scan(seq int, filename string) {
 
 	clientOne.Do(func() {
 		client = &http.Client{
-			Timeout: conf.Timeout,
+			Timeout: config.Timeout(),
 			Transport: &http.Transport{
 				DisableCompression: true,
 			},
 		}
 	})
 
-	from, rcpts, auth, ip, helo, hostname, qid, body, seen, err := cgp.Message(filename)
+	msg, err := cgp.NewMessage(seq, filename)
 	if err != nil {
-		cgp.Failure(seq, qid, err)
+		cgp.Failure(seq, 0, err)
+		return
+	}
+	defer msg.Close()
+
+	if msg.IsSeen() {
+		cgp.OkSeen(seq, msg.QID)
 		return
 	}
 
-	if seen {
-		cgp.OkSeen(seq, qid)
-		return
-	}
-
-	req, err := http.NewRequest("POST", conf.Host, bytes.NewReader(body))
+	content := io.NewSectionReader(msg.File, msg.HdrPos, msg.Size-msg.HdrPos)
+	req, err := http.NewRequest("POST", config.Host(), content)
 	if err != nil {
-		cgp.Failure(seq, qid, err)
+		cgp.Failure(seq, msg.QID, err)
 		return
 	}
 
-	req.Header.Add("MTA-Tag", conf.AuthservId)
+	req.Header.Add("MTA-Tag", config.AuthservId())
 	req.Header.Add("User-Agent", "rspamd-cgp")
-	req.Header.Add("From", from)
-	req.Header.Add("Queue-ID", strconv.Itoa(qid))
-	if len(auth) > 0 {
-		req.Header.Add("User", auth)
+	req.Header.Add("From", msg.From)
+	req.Header.Add("Queue-ID", strconv.Itoa(msg.QID))
+	if len(msg.Auth) > 0 {
+		req.Header.Add("User", msg.Auth)
 	}
-	if len(ip) > 0 {
-		req.Header.Add("IP", ip)
+	if len(msg.IP) > 0 {
+		req.Header.Add("IP", msg.IP)
 	}
-	if len(helo) > 0 {
-		req.Header.Add("Helo", helo)
+	if len(msg.Helo) > 0 {
+		req.Header.Add("Helo", msg.Helo)
 	}
-	if len(hostname) > 0 {
-		req.Header.Add("Hostname", hostname)
+	if len(msg.Hostname) > 0 {
+		req.Header.Add("Hostname", msg.Hostname)
 	}
-	for _, rcpt := range rcpts {
+	for _, rcpt := range msg.Rcpts {
 		req.Header.Add("Rcpt", rcpt)
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		cgp.Failure(seq, qid, err)
+		cgp.Failure(seq, msg.QID, err)
 		return
 	}
 	defer resp.Body.Close()
 
-	rbody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		cgp.Failure(seq, qid, err)
+	var res RspamdResponse
+	var reader io.Reader = resp.Body
+	var debugBuf *bytes.Buffer
+
+	// Если Debug включен, копируем поток в буфер
+	if config.Debug() {
+		debugBuf = new(bytes.Buffer)
+		reader = io.TeeReader(resp.Body, debugBuf)
+	}
+
+	if err := json.NewDecoder(reader).Decode(&res); err != nil {
+		cgp.Failure(seq, msg.QID, err)
 		return
 	}
 
-	var res map[string]any
-	if err := json.Unmarshal(rbody, &res); err != nil {
-		cgp.Failure(seq, qid, err)
+	if config.Debug() {
+		msg.PrintMsgInfo()
+		printResponse(debugBuf)
+	}
+
+	action := res.Action
+	if action == "" {
+		cgp.Failure(seq, msg.QID, fmt.Errorf("missing or invalid 'action' field"))
 		return
 	}
 
-	if conf.Debug {
-		printMsgInfo(from, rcpts, auth, ip, helo, hostname, qid, seen)
-		printResponse(res)
-	}
+	opsum, caseinfo, casework, desc := makeOpSum(&res, action)
 
-	action, ok := res["action"].(string)
-	if !ok {
-		cgp.Failure(seq, qid, fmt.Errorf("missing or invalid 'action' field"))
-		return
-	}
-
-	opsum, caseinfo, casework, desc := makeOpSum(conf, res, action)
-
-	headers := make([]string, 0, 8)
-	if conf.Outbound {
-		headers = makeHeadersOutbound(res)
+	var headers []string
+	if config.Outbound() {
+		headers = makeHeadersOutbound(&res)
 	} else {
-		headers = makeHeaders(res)
+		headers = makeHeaders(&res)
 	}
 
-	cgp.Putline("* %d [%d]: Action: %s; Score: %.2f/%.2f; Time elapsed: %.3fs\n",
-		seq, qid, action, res["score"], res["required_score"], res["time_real"])
+	cgp.Putline("* ", seq, " [", msg.QID, "]: Action: ", action,
+		"; Score: ", res.Score, "/", res.RequiredScore, "; Time elapsed: ", res.TimeReal)
 
 	var hci string
-
 	if opsum != nil {
-		cgp.Putline("* %d [%d]: Case: %s; %s\n", seq, qid, caseinfo, casework)
+		cgp.Putline("* ", seq, " [", msg.QID, "]: Case: ", caseinfo, "; ", casework)
 		hci = headerCase + caseinfo
-		if !conf.Outbound {
+		if !config.Outbound() {
 			headers = append(headers, hci)
 		}
 	}
 
-	switch action {
-	case "no action":
-		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 0)
-
-	case "discard":
-		if !conf.Outbound {
-			headers = append(headers, headerJunkR)
-		}
-		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 2)
-
-	case "quarantine":
-		fallthrough
-	case "reject":
-		if !conf.Outbound {
-			headers = append(headers, headerJunkR)
-		}
-		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 1)
-
-	case "rewrite subject":
-		if subject, ok := res["subject"].(string); ok {
-			procActionRS(seq, qid, opsum, res, headers, hci, subject, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound)
-		} else {
-			if !conf.Outbound {
-				headers = append(headers, headerJunkA)
-			}
-			procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 1)
-		}
-
-	case "add header":
-		if !conf.Outbound {
-			headers = append(headers, headerJunkA)
-		}
-		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 1)
-
-	case "greylist":
-		fallthrough
-	case "soft reject":
-		if !conf.Outbound {
-			headers = append(headers, headerJunkG)
-		}
-		procAction(seq, qid, opsum, res, headers, hci, from, rcpts, body, conf.NotifyFrom, desc, conf.Outbound, 1)
-
-	default:
-		cgp.Failure(seq, qid, fmt.Errorf("Unknown action: %v", action))
-	}
+	procActionSwitch(seq, msg, opsum, &res, headers, hci, action, desc)
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"net"
 	"net/netip"
-	"regexp"
 	"strings"
 	"time"
 
@@ -92,12 +91,52 @@ var getHostname = func() func(addr string) (hostname string) {
 	}
 }()
 
-var IsValidDomain = func() func(domain string) bool {
-	rx := regexp.MustCompile(`^(?i)[a-z0-9-]+(\.[a-z0-9-]+)+\.?$`)
-	return func(domain string) bool {
-		return rx.MatchString(domain)
+func IsValidDomain(domain string) bool {
+	if len(domain) == 0 || len(domain) > 253 {
+		return false
 	}
-}()
+
+	// Fast path: IP-адреса (v4 и v6) обычно начинаются с цифры или двоеточия.
+	// Домены по RFC могут начинаться с цифры, но это редкость.
+	// Если первый символ - цифра или ':', проверяем, не IP ли это.
+	first := domain[0]
+	if (first >= '0' && first <= '9') || first == ':' {
+		if _, err := netip.ParseAddr(strings.TrimSuffix(domain, ".")); err == nil {
+			return false // Это чистый IP
+		}
+	}
+
+	domain = strings.TrimSuffix(domain, ".")
+	lastDot := -1
+	hasDot := false
+
+	for i := 0; i < len(domain); i++ {
+		c := domain[i]
+		if c == '.' {
+			labelLen := i - lastDot - 1
+			// Пустые метки (..) или дефис по краям метки недопустимы
+			if labelLen == 0 || labelLen > 63 || domain[lastDot+1] == '-' || domain[i-1] == '-' {
+				return false
+			}
+			lastDot = i
+			hasDot = true
+			continue
+		}
+
+		// Допустимые символы: [a-zA-Z0-9_-]
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_') {
+			return false
+		}
+	}
+
+	// Проверка последней метки (TLD)
+	finalLabelLen := len(domain) - lastDot - 1
+	if finalLabelLen == 0 || finalLabelLen > 63 || domain[lastDot+1] == '-' || domain[len(domain)-1] == '-' {
+		return false
+	}
+
+	return hasDot
+}
 
 func lookupAddr(ipAddr netip.Addr) (hostname string) {
 

@@ -12,9 +12,16 @@ import (
 	"git.vsu.ru/ai/rspamd-cgp/cgp"
 )
 
+// Эти значения будут перезаписаны при сборке через -ldflags
+var (
+	Version   = "dev"
+	Commit    = "none"
+	BuildTime = "unknown"
+)
+
 type Operation struct {
 	Description string
-	Direction   string
+	Direction   Direction
 	Discard     bool
 	MirrorTo    []string
 	NotifyRcpts bool
@@ -22,52 +29,73 @@ type Operation struct {
 }
 
 type Config struct {
-	AuthservId string
-	Debug      bool
-	Outbound   bool
-	Host       string        `default:"localhost:11333"`
-	Timeout    time.Duration `default:"15s"`
-	NotifyFrom string        `required:"true"`
-	Actions    map[string]*Operation
-	Symbols    map[string]*Operation
+	AuthservId  string
+	Host        string        `default:"localhost:11333"`
+	Timeout     time.Duration `default:"15s"`
+	NotifyFrom  string        `required:"true"`
+	Actions     map[string]*Operation
+	Symbols     map[string]*Operation
+	debug       bool
+	outbound    bool
+	showVersion bool
 }
 
-func New() *Config {
+var configInstance *Config
 
-	config := new(Config)
+func Action(a string) (op *Operation, ok bool) {
+	op, ok = configInstance.Actions[a]
+	return
+}
+
+func AuthservId() string {
+	return configInstance.AuthservId
+}
+
+func Debug() bool {
+	return configInstance.debug
+}
+
+func GetVersion() string {
+	return fmt.Sprintf("rspamd-cgp\n  version:  %s\n  commit:   %s\n  built:    %s\n",
+		Version, Commit, BuildTime)
+}
+
+func Host() string {
+	return configInstance.Host
+}
+
+func New(args []string) (*Config, error) {
+
+	c := &Config{}
+
+	fs := flag.NewFlagSet("rspamd-cgp", flag.ContinueOnError)
 
 	dir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
 
 	var configfile string
 	var configdump bool
 	var configtest bool
-	var debug bool
-	var outbound bool
+	var err error
 
-	flag.StringVar(&configfile, "config", dir+"/rspamd-cgp.yml", "Set configuration file")
-	flag.BoolVar(&configdump, "configdump", false, "Perform configuration file dump")
-	flag.BoolVar(&configtest, "configtest", false, "Perform configuration file test")
-	flag.BoolVar(&debug, "debug", false, "Run in debug mode")
-	flag.BoolVar(&outbound, "outbound", false, "Outbound message flow processing")
-	flag.Parse()
+	fs.StringVar(&configfile, "config", dir+"/rspamd-cgp.yml", "Set configuration file")
+	fs.BoolVar(&configdump, "configdump", false, "Perform configuration file dump")
+	fs.BoolVar(&configtest, "configtest", false, "Perform configuration file test")
+	fs.BoolVar(&c.debug, "debug", false, "Run in debug mode")
+	fs.BoolVar(&c.outbound, "outbound", false, "Outbound message flow processing")
+	fs.BoolVar(&c.showVersion, "version", false, "print version and exit")
 
-	err := configor.Load(config, configfile)
+	if err = fs.Parse(args); err != nil {
+		return nil, err
+	}
+
+	err = configor.Load(c, configfile)
 	if err != nil {
-		fmt.Println("config:", err)
-		os.Exit(1)
-	}
-
-	if debug {
-		config.Debug = debug
-	}
-
-	if outbound {
-		config.Outbound = outbound
+		return nil, err
 	}
 
 	if configdump {
-		dumpConfig(config)
-		if err = validateConfig(config); err != nil {
+		dumpConfig(c)
+		if err = validateConfig(c); err != nil {
 			fmt.Println("config:", err)
 			os.Exit(1)
 		}
@@ -75,7 +103,7 @@ func New() *Config {
 	}
 
 	if configtest {
-		if err = validateConfig(config); err != nil {
+		if err = validateConfig(c); err != nil {
 			fmt.Println("config:", err)
 			os.Exit(1)
 		} else {
@@ -84,16 +112,42 @@ func New() *Config {
 		}
 	}
 
-	if config.AuthservId == "" {
-		if config.AuthservId, err = cgp.MainDomain(); err != nil {
-			fmt.Println("Can not detect Main Domain:", err)
-			os.Exit(1)
+	if c.AuthservId == "" {
+		if c.AuthservId, err = cgp.MainDomain(); err != nil {
+			return nil, fmt.Errorf("can not detect Main Domain: %v", err)
 		}
 	}
 
-	setOpDefaultDirection(config)
+	c.Host = "http://" + c.Host + "/checkv2"
 
-	config.Host = "http://" + config.Host + "/checkv2"
+	return c, nil
+}
 
-	return config
+func NotifyFrom() string {
+	return configInstance.NotifyFrom
+}
+
+func Outbound() bool {
+	return configInstance.outbound
+}
+
+func SetGlobal(c *Config) {
+	configInstance = c
+}
+
+func ShowVersion() bool {
+	return configInstance.showVersion
+}
+
+func Symbol(s string) (op *Operation, ok bool) {
+	op, ok = configInstance.Symbols[s]
+	return
+}
+
+func Symbols() map[string]*Operation {
+	return configInstance.Symbols
+}
+
+func Timeout() time.Duration {
+	return configInstance.Timeout
 }
