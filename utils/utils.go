@@ -3,7 +3,15 @@ package utils
 import (
 	"strings"
 	"unicode"
+	"unsafe"
 )
+
+func Bytes2string(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
+	return unsafe.String(unsafe.SliceData(b), len(b))
+}
 
 func DiffSlice[T comparable](s1, s2 []T) []T {
 
