@@ -1,3 +1,5 @@
+[![English](https://img.shields.io/badge/lang-en-blue.svg)](#) [![Russian](https://img.shields.io/badge/lang-ru-lightgrey.svg)](README.ru.md)
+
 ## Rspamd helper for CommuniGate Pro 6.x, *version 3.0.0*
 
 ### Introduction
