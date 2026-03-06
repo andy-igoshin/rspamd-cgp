@@ -160,43 +160,48 @@ func NewMessage(seq int, filename string) (*Message, error) {
 
 	for {
 		buf.Reset()
-		if err := getHeader(rd, buf); err != nil {
+		err := getHeader(rd, buf)
+		hdr := buf.Bytes()
+
+		if len(hdr) > 0 {
+			pos += int64(len(hdr))
+
+			if isHeaderEnd(hdr) {
+				break
+			}
+
+			// А. Проверка существующей метки Seen (Прошлое)
+			// Доверяем порядку: Метка -> (опционально не-Received) -> Первый Received
+			if !seenProcessed {
+				if !seenFound {
+					if bytes.HasPrefix(hdr, bSeenHdr) {
+						seenSum = string(bytes.TrimSpace(hdr[len(bSeenHdr):]))
+						seenFound = true
+					}
+				} else if bytes.HasPrefix(hdr, bRecvHdr) {
+					// Валидируем по первому же встречному Received
+					if hashReceived(hdr) == seenSum {
+						msg.seen = true
+					}
+					seenProcessed = true
+				}
+			}
+
+			// Б. Идентификация точки входа (Будущее)
+			// Нас интересует только первый внешний Received.
+			if !extReceivedSaved && isExternal(hdr) {
+				msg.extReceived = bytes.Clone(hdr)
+				extReceivedSaved = true
+				msg.Helo = getHelo(hdr)
+			}
+		}
+
+		if err != nil {
 			if err == io.EOF {
 				break
 			}
 			f.Close()
 			return nil, err
-		}
-		hdr := buf.Bytes()
-		pos += int64(len(hdr))
-
-		if isHeaderEnd(hdr) {
-			break
-		}
-
-		// А. Проверка существующей метки Seen (Прошлое)
-		// Доверяем порядку: Метка -> (опционально не-Received) -> Первый Received
-		if !seenProcessed {
-			if !seenFound {
-				if bytes.HasPrefix(hdr, bSeenHdr) {
-					seenSum = string(bytes.TrimSpace(hdr[len(bSeenHdr):]))
-					seenFound = true
-				}
-			} else if bytes.HasPrefix(hdr, bRecvHdr) {
-				// Валидируем по первому же встречному Received
-				if hashReceived(hdr) == seenSum {
-					msg.seen = true
-				}
-				seenProcessed = true
-			}
-		}
-
-		// Б. Идентификация точки входа (Будущее)
-		// Нас интересует только первый внешний Received.
-		if !extReceivedSaved && isExternal(hdr) {
-			msg.extReceived = bytes.Clone(hdr)
-			extReceivedSaved = true
-			msg.Helo = getHelo(hdr)
 		}
 	}
 

@@ -22,37 +22,37 @@ func extractAngle(line []byte) (string, bool) {
 }
 
 func getHeader(m *bufio.Reader, buf *bytes.Buffer) error {
-	buf.Reset()
 	for {
 		line, err := m.ReadSlice('\n')
-		if err != nil {
-			if err == bufio.ErrBufferFull {
-				buf.Write(line)
-				// Защита от бесконечных заголовков
-				if buf.Len() > 64*1024 {
-					return fmt.Errorf("header too long")
-				}
-				continue
-			}
+		if err != nil && err != bufio.ErrBufferFull {
 			if len(line) > 0 {
 				buf.Write(line)
 			}
-			if err == io.EOF {
-				break
-			}
 			return err
 		}
+
 		buf.Write(line)
+
+		if err == bufio.ErrBufferFull {
+			if buf.Len() > 64*1024 {
+				return fmt.Errorf("header too long")
+			}
+			continue
+		}
+
+		if isHeaderEnd(line) {
+			return nil
+		}
 
 		next, err := m.Peek(1)
 		if err != nil {
-			break // EOF
+			return err
 		}
+
 		if next[0] != ' ' && next[0] != '\t' {
-			break
+			return nil
 		}
 	}
-	return nil
 }
 
 func getHelo(hdr []byte) string {
