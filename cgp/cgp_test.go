@@ -18,8 +18,8 @@ func TestMainDomain(t *testing.T) {
 	// Тестируем разные варианты написания в Main.settings
 	content := []byte(`
 		OtherKey = 123;
-		DomainName = "relay1.vsu.ru" ;
-		UnquotedDomain = vsu.ru;
+		DomainName = "relay1.domain.name" ;
+		UnquotedDomain = domain.name;
 		# CommentedDomain = ignore.me;
 	`)
 
@@ -38,8 +38,8 @@ func TestMainDomain(t *testing.T) {
 		if err != nil {
 			t.Fatalf("MainDomain failed: %v", err)
 		}
-		if got != "relay1.vsu.ru" {
-			t.Errorf("Got %q, want %q", got, "relay1.vsu.ru")
+		if got != "relay1.domain.name" {
+			t.Errorf("Got %q, want %q", got, "relay1.domain.name")
 		}
 	})
 }

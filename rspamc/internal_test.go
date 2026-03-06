@@ -10,11 +10,11 @@ func TestMakeOpSum_Logic(t *testing.T) {
 	// Инициализируем конфиг для теста
 	conf := &config.Config{
 		Actions: map[string]*config.Operation{
-			"add header": {Direction: config.DirBoth, Discard: false, NotifyTo: []string{"admin@vsu.ru"}},
+			"add header": {Direction: config.DirBoth, Discard: false, NotifyTo: []string{"admin@domain.name"}},
 		},
 		Symbols: map[string]*config.Operation{
-			"VIRUS": {Direction: config.DirBoth, Discard: true, MirrorTo: []string{"quarantine@vsu.ru"}},
-			"SPAM":  {Direction: config.DirIn, Discard: false, MirrorTo: []string{"spam-box@vsu.ru"}},
+			"VIRUS": {Direction: config.DirBoth, Discard: true, MirrorTo: []string{"quarantine@domain.name"}},
+			"SPAM":  {Direction: config.DirIn, Discard: false, MirrorTo: []string{"spam-box@domain.name"}},
 		},
 	}
 	config.SetGlobal(conf)
@@ -36,7 +36,7 @@ func TestMakeOpSum_Logic(t *testing.T) {
 		if !opsum.Discard {
 			t.Error("Discard must be TRUE because of VIRUS symbol")
 		}
-		if len(opsum.MirrorTo) != 1 || opsum.MirrorTo[0] != "quarantine@vsu.ru" {
+		if len(opsum.MirrorTo) != 1 || opsum.MirrorTo[0] != "quarantine@domain.name" {
 			t.Errorf("MirrorTo mismatch: %v", opsum.MirrorTo)
 		}
 		if cases != "add header,VIRUS" {
@@ -77,7 +77,7 @@ func TestFilterLocalRcpts_Scenarios(t *testing.T) {
 	res := &RspamdResponse{
 		Symbols: map[string]*Symbol{
 			"RCPTS_DOMAINS_LOCAL": {
-				Options: []string{"vsu.ru"},
+				Options: []string{"domain.name"},
 			},
 		},
 	}
@@ -87,8 +87,8 @@ func TestFilterLocalRcpts_Scenarios(t *testing.T) {
 		input    []string
 		expected int
 	}{
-		{"All Local", []string{"<a@vsu.ru>", "<b@vsu.ru>"}, 2},
-		{"Mixed", []string{"<a@vsu.ru>", "<external@gmail.com>"}, 1},
+		{"All Local", []string{"<a@domain.name>", "<b@domain.name>"}, 2},
+		{"Mixed", []string{"<a@domain.name>", "<external@gmail.com>"}, 1},
 		{"None Local", []string{"<hacker@evil.com>"}, 0},
 	}
 

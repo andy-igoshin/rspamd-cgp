@@ -6,10 +6,10 @@ import (
 
 func TestHostname_Logic(t *testing.T) {
 	t.Run("FilterNames", func(t *testing.T) {
-		input := []string{"host", "mail.vsu.ru", "localhost", "deep.sub.domain.com"}
+		input := []string{"host", "mail.domain.name", "localhost", "deep.sub.domain.com"}
 		// Должны остаться только те, что проходят IsValidDomain (с точками)
 		got := filterNames(input)
-		if len(got) != 3 { // mail.vsu.ru, localhost (если rx пропустит), deep...
+		if len(got) != 3 { // mail.domain.name, localhost (если rx пропустит), deep...
 			// Зависит от вашего regex. IsValidDomain требует хотя бы одну точку.
 			t.Logf("Filtered names: %v", got)
 		}
@@ -36,8 +36,8 @@ func TestHostname_Logic(t *testing.T) {
 			dom  string
 			want bool
 		}{
-			{"vsu.ru", true},
-			{"mail.vsu.ru.", true},   // с точкой в конце
+			{"domain.name", true},
+			{"mail.domain.name.", true},   // с точкой в конце
 			{"internal-host", false}, // нет точек
 			{"1.2.3.4", false},       // IP не должен быть доменом в этой логике
 		}

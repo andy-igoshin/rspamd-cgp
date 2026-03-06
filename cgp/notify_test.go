@@ -19,8 +19,8 @@ func TestNotifyTo(t *testing.T) {
 	// 1. Готовим "донорское" письмо, из которого будем брать заголовки
 	qid := 999
 	mock := &MessageMock{
-		Envelope: []string{"P <s@vsu.ru>", "R <r@vsu.ru>", "S SMTP [1.2.3.4]"},
-		Headers:  []string{"From: sender@vsu.ru", "Subject: Original", "X-Custom: Value"},
+		Envelope: []string{"P <s@domain.name>", "R <r@domain.name>", "S SMTP [1.2.3.4]"},
+		Headers:  []string{"From: sender@domain.name", "Subject: Original", "X-Custom: Value"},
 		Body:     "This body should NOT be in notification",
 	}
 	fname := createTestFile(t, qid, mock.Render())
@@ -32,8 +32,8 @@ func TestNotifyTo(t *testing.T) {
 	defer msg.Close()
 
 	// 2. Вызываем NotifyTo
-	to := []string{"admin@vsu.ru"}
-	notifyFrom := "postmaster@vsu.ru"
+	to := []string{"admin@domain.name"}
+	notifyFrom := "postmaster@domain.name"
 	desc := "Spam policy violation detected"
 	header := "X-Rspamd-Case: 12345"
 
@@ -50,7 +50,7 @@ func TestNotifyTo(t *testing.T) {
 	// ПРОВЕРКИ:
 
 	// А. Конверт (NotifyTo пишет Return-Path: <>)
-	if !strings.HasPrefix(sRes, "Return-Path: <>\nEnvelope-To: admin@vsu.ru") {
+	if !strings.HasPrefix(sRes, "Return-Path: <>\nEnvelope-To: admin@domain.name") {
 		t.Error("Invalid envelope in notification")
 	}
 
@@ -98,9 +98,9 @@ func TestNotifyTo_MultipleRcpts(t *testing.T) {
 	// Создаем сообщение с двумя получателями в конверте
 	mock := &MessageMock{
 		Envelope: []string{
-			"P <s@vsu.ru>",
-			"R <r1@vsu.ru>",
-			"R <r2@vsu.ru>",
+			"P <s@domain.name>",
+			"R <r1@domain.name>",
+			"R <r2@domain.name>",
 			"S SMTP [1.1.1.1]",
 		},
 		Headers: []string{"Subject: Test"},
@@ -115,10 +115,10 @@ func TestNotifyTo_MultipleRcpts(t *testing.T) {
 	defer msg.Close()
 
 	// Получатели уведомления
-	to := []string{"admin1@vsu.ru", "admin2@vsu.ru"}
+	to := []string{"admin1@domain.name", "admin2@domain.name"}
 
 	// Вызываем генерацию уведомления
-	NotifyTo(1, msg, to, "X-Rspamd-Scan: 1", "postmaster@vsu.ru", "Policy violation")
+	NotifyTo(1, msg, to, "X-Rspamd-Scan: 1", "postmaster@domain.name", "Policy violation")
 
 	// Читаем результат
 	resPath := filepath.Join(subDir, "123no.sub")
@@ -129,18 +129,18 @@ func TestNotifyTo_MultipleRcpts(t *testing.T) {
 	sRes := string(res)
 
 	// 1. Проверка Envelope-To (оба адреса должны быть в заголовках конверта)
-	if !strings.Contains(sRes, "Envelope-To: admin1@vsu.ru") ||
-		!strings.Contains(sRes, "Envelope-To: admin2@vsu.ru") {
+	if !strings.Contains(sRes, "Envelope-To: admin1@domain.name") ||
+		!strings.Contains(sRes, "Envelope-To: admin2@domain.name") {
 		t.Error("Not all notification recipients found in Envelope-To")
 	}
 
 	// 2. Проверка форматирования списка получателей в текстовой части.
 	// Судя по вашему дампу:
-	// "rcpt to:   <r1@vsu.ru>" -> 3 пробела после двоеточия
-	// "\n           <r2@vsu.ru>" -> 11 пробелов в начале строки
+	// "rcpt to:   <r1@domain.name>" -> 3 пробела после двоеточия
+	// "\n           <r2@domain.name>" -> 11 пробелов в начале строки
 
-	expectedFirst := "rcpt to:   <r1@vsu.ru>"
-	expectedSecond := "\n           <r2@vsu.ru>"
+	expectedFirst := "rcpt to:   <r1@domain.name>"
+	expectedSecond := "\n           <r2@domain.name>"
 
 	if !strings.Contains(sRes, expectedFirst) {
 		t.Errorf("First recipient line mismatch.\nWant: %q\nGot around: %q", expectedFirst, sRes[strings.Index(sRes, "rcpt to:"):strings.Index(sRes, "rcpt to:")+30])
@@ -151,7 +151,7 @@ func TestNotifyTo_MultipleRcpts(t *testing.T) {
 	}
 
 	// 3. Проверка mail from (также со скобками)
-	if !strings.Contains(sRes, "mail from: <s@vsu.ru>") {
+	if !strings.Contains(sRes, "mail from: <s@domain.name>") {
 		t.Error("Mail from line mismatch")
 	}
 }

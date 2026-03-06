@@ -43,33 +43,33 @@ func TestIntegration_FullMatrix(t *testing.T) {
 		{
 			name:       "1. IN: Clean Message",
 			rspamdResp: `{"action":"no action","score":0.1,"symbols":{"ALL_OK":{"score":0}}}`,
-			configYaml: "authservid: \"vsu.ru\"\nhost: \"%s\"\nnotifyfrom: \"p@v.ru\"\n",
+			configYaml: "authservid: \"domain.name\"\nhost: \"%s\"\nnotifyfrom: \"p@v.ru\"\n",
 			expect:     []string{"2 OK"},
 		},
 		{
 			name:       "2. IN: Virus -> Mirror + Discard",
 			rspamdResp: `{"action":"no action","symbols":{"VIRUS":{"score":10}}}`,
-			configYaml: "authservid: \"vsu.ru\"\nhost: \"%s\"\nnotifyfrom: \"p@v.ru\"\nsymbols:\n  VIRUS: { discard: true, mirrorto: [\"quarantine@vsu.ru\"] }\n",
-			expect:     []string{"MIRRORTO", "quarantine@vsu.ru", "DISCARD"},
+			configYaml: "authservid: \"domain.name\"\nhost: \"%s\"\nnotifyfrom: \"p@v.ru\"\nsymbols:\n  VIRUS: { discard: true, mirrorto: [\"quarantine@domain.name\"] }\n",
+			expect:     []string{"MIRRORTO", "quarantine@domain.name", "DISCARD"},
 		},
 		{
 			name:       "3. IN: Spam -> Rewrite Subject",
 			rspamdResp: `{"action":"rewrite subject","subject":"[SPAM] Test","score":8,"symbols":{"SPAM_LOW":{"score":5}}}`,
-			configYaml: "authservid: \"vsu.ru\"\nhost: \"%s\"\nnotifyfrom: \"p@v.ru\"\nsymbols:\n  SPAM_LOW: { Discard: true }\n",
+			configYaml: "authservid: \"domain.name\"\nhost: \"%s\"\nnotifyfrom: \"p@v.ru\"\nsymbols:\n  SPAM_LOW: { Discard: true }\n",
 			expect:     []string{"2 ADDHEADER", "DISCARD"},
 			checkFile:  true,
 		},
 		{
 			name:       "4. IN: High Score -> Reject Action (Junk-Score)",
 			rspamdResp: `{"action":"reject","score":15}`,
-			configYaml: "authservid: \"vsu.ru\"\nhost: \"%s\"\nnotifyfrom: \"p@v.ru\"\n",
+			configYaml: "authservid: \"domain.name\"\nhost: \"%s\"\nnotifyfrom: \"p@v.ru\"\n",
 			expect:     []string{"ADDHEADER", "X-Junk-Score: [XXXXXXXXXX]", "OK"},
 		},
 		{
 			name:       "5. OUT: Virus -> Discard (No Mirror for outbound)",
 			isOutbound: true,
 			rspamdResp: `{"action":"no action","symbols":{"VIRUS":{"score":10}}}`,
-			configYaml: "authservid: \"vsu.ru\"\nhost: \"%s\"\nnotifyfrom: \"p@v.ru\"\nsymbols:\n  VIRUS: { discard: true, mirrorto: [\"quarantine@vsu.ru\"] }\n",
+			configYaml: "authservid: \"domain.name\"\nhost: \"%s\"\nnotifyfrom: \"p@v.ru\"\nsymbols:\n  VIRUS: { discard: true, mirrorto: [\"quarantine@domain.name\"] }\n",
 			expect:     []string{"DISCARD"},
 		},
 	}
@@ -95,7 +95,7 @@ func TestIntegration_FullMatrix(t *testing.T) {
 			qid := "999"
 			msgPath := filepath.Join(tmpDir, "Queue", qid+".msg")
 			msgData := "S <s@v.ru> SMTP [1.1.1.1]\nP <s@v.ru>\nR <r@v.ru>\n\n" +
-				"Received: from x by vsu.ru; Thu, 05 Mar 2026 12:00:00 +0300\n" +
+				"Received: from x by domain.name; Thu, 05 Mar 2026 12:00:00 +0300\n" +
 				"From: s@v.ru\nSubject: Test\n\nBody content"
 			os.WriteFile(msgPath, []byte(msgData), 0644)
 
@@ -167,14 +167,14 @@ func createCgpCompliantFile(t *testing.T, qid int) string {
 
 	var buf bytes.Buffer
 	// 1. Формат CGP Envelope
-	buf.WriteString("S <test@vsu.ru> SMTP [2001:67c:418:2020::21]\n")
-	buf.WriteString(fmt.Sprintf("P <%d@vsu.ru>\n", qid))
-	buf.WriteString("R <rcpt@vsu.ru>\n")
+	buf.WriteString("S <test@domain.name> SMTP [2001:67c:418:2020::21]\n")
+	buf.WriteString(fmt.Sprintf("P <%d@domain.name>\n", qid))
+	buf.WriteString("R <rcpt@domain.name>\n")
 	buf.WriteString("\n") // Конец Envelope
 
 	// 2. Тело письма (RFC5322)
-	buf.WriteString("Received: from mail.vsu.ru ([1.2.3.4] verified)\n")
-	buf.WriteString("From: <sender@vsu.ru>\n")
+	buf.WriteString("Received: from mail.domain.name ([1.2.3.4] verified)\n")
+	buf.WriteString("From: <sender@domain.name>\n")
 	buf.WriteString("Subject: Bench\n")
 	buf.WriteString("\n")
 	buf.WriteString("Body content goes here")
@@ -186,7 +186,7 @@ func createCgpCompliantFile(t *testing.T, qid int) string {
 func BenchmarkRspamc_Scan_RealWork(b *testing.B) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"action": "no action", "score": -2.75, "symbols": {"RCPTS_DOMAINS_LOCAL": {"options": ["vsu.ru"]}}}`)
+		fmt.Fprint(w, `{"action": "no action", "score": -2.75, "symbols": {"RCPTS_DOMAINS_LOCAL": {"options": ["domain.name"]}}}`)
 	}))
 	defer ts.Close()
 

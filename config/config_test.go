@@ -89,7 +89,7 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "Valid config",
 			cfg: &Config{
-				NotifyFrom: "scanner@vsu.ru",
+				NotifyFrom: "scanner@domain.name",
 				Actions: map[string]*Operation{
 					"quarantine": {Direction: DirBoth},
 				},
@@ -106,7 +106,7 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "Invalid direction enum",
 			cfg: &Config{
-				NotifyFrom: "ok@vsu.ru",
+				NotifyFrom: "ok@domain.name",
 				Actions: map[string]*Operation{
 					"test": {Direction: Direction(99)}, // Несуществующее значение
 				},
@@ -140,7 +140,7 @@ func TestConfig_AuthservIdFallback(t *testing.T) {
 	settingsDir := filepath.Join(tmpDir, "Settings")
 	os.MkdirAll(settingsDir, 0755)
 
-	mainSettingsContent := []byte(`DomainName = "vsu.ru";`)
+	mainSettingsContent := []byte(`DomainName = "domain.name";`)
 	os.WriteFile(filepath.Join(settingsDir, "Main.settings"), mainSettingsContent, 0644)
 
 	configFile := filepath.Join(tmpDir, "config.yml")
@@ -158,8 +158,8 @@ func TestConfig_AuthservIdFallback(t *testing.T) {
 			t.Fatalf("New() failed to detect domain: %v", err)
 		}
 
-		if cfg.AuthservId != "vsu.ru" {
-			t.Errorf("Expected AuthservId 'vsu.ru', got %q", cfg.AuthservId)
+		if cfg.AuthservId != "domain.name" {
+			t.Errorf("Expected AuthservId 'domain.name', got %q", cfg.AuthservId)
 		}
 	})
 }

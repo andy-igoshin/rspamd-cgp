@@ -34,7 +34,7 @@ func TestGetHelo_Variants(t *testing.T) {
 		hdr  string
 		want string
 	}{
-		{"Standard verified", "Received: from mail.vsu.ru ([1.2.3.4] verified)\n", "mail.vsu.ru"},
+		{"Standard verified", "Received: from mail.domain.name ([1.2.3.4] verified)\n", "mail.domain.name"},
 		{"HELO in brackets", "Received: from [1.2.3.4] (HELO poseidonms.com)\n", "poseidonms.com"},
 		{"Account and HELO", "Received: from [10.19.5.40] (account test@domain.name HELO test.domain.name)\n", "test.domain.name"},
 		{"Malformed", "Received: from broken (", ""},

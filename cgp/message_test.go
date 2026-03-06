@@ -53,18 +53,18 @@ func createTestFile(t *testing.T, qid int, content []byte) string {
 }
 
 func TestNewMessage_Parsing(t *testing.T) {
-	rawRecv := "Received: from mail.vsu.ru ([1.2.3.4] verified)"
+	rawRecv := "Received: from mail.domain.name ([1.2.3.4] verified)"
 	mock := &MessageMock{
 		Envelope: []string{
-			"P <sender@vsu.ru>",
-			"R <rcpt1@vsu.ru>",
-			"R <rcpt2@vsu.ru>",
+			"P <sender@domain.name>",
+			"R <rcpt1@domain.name>",
+			"R <rcpt2@domain.name>",
 			"S SMTP [1.2.3.4]",
 		},
 		Headers: []string{
 			rawRecv,
 			"Subject: Test",
-			"From: sender@vsu.ru",
+			"From: sender@domain.name",
 		},
 		Body: "Hello world!",
 	}
@@ -83,7 +83,7 @@ func TestNewMessage_Parsing(t *testing.T) {
 	if msg.QID != qid {
 		t.Errorf("QID mismatch: got %d, want %d", msg.QID, qid)
 	}
-	if msg.From != "<sender@vsu.ru>" {
+	if msg.From != "<sender@domain.name>" {
 		t.Errorf("From mismatch: got %s", msg.From)
 	}
 	if len(msg.Rcpts) != 2 {
@@ -92,7 +92,7 @@ func TestNewMessage_Parsing(t *testing.T) {
 	if msg.IP != "1.2.3.4" {
 		t.Errorf("IP mismatch: got %s", msg.IP)
 	}
-	if msg.Helo != "mail.vsu.ru" {
+	if msg.Helo != "mail.domain.name" {
 		t.Errorf("Helo mismatch: got %s", msg.Helo)
 	}
 
@@ -119,11 +119,11 @@ func TestMessage_RewriteSubject(t *testing.T) {
 	defer os.Chdir(oldWd)
 
 	// Подготовка мока сообщения
-	rawRecv := "Received: from mail.vsu.ru ([1.2.3.4] verified)"
+	rawRecv := "Received: from mail.domain.name ([1.2.3.4] verified)"
 	mock := &MessageMock{
-		Envelope: []string{"P <s@vsu.ru>", "R <r@vsu.ru>", "S SMTP [1.2.3.4]"},
+		Envelope: []string{"P <s@domain.name>", "R <r@domain.name>", "S SMTP [1.2.3.4]"},
 		Headers: []string{
-			"From: s@vsu.ru",
+			"From: s@domain.name",
 			rawRecv, // Наш целевой Received для HELO и Seen
 			"Subject: Old",
 		},
@@ -195,7 +195,7 @@ func TestMessage_RewriteSubject(t *testing.T) {
 func TestNewMessage_Malformed(t *testing.T) {
 	t.Run("Unexpected EOF", func(t *testing.T) {
 		// Обрываем файл прямо в середине конверта
-		content := []byte("P <sender@vsu.ru>\nS SMTP [1.2.3.4]")
+		content := []byte("P <sender@domain.name>\nS SMTP [1.2.3.4]")
 		fname := createTestFile(t, 30003, content)
 
 		_, err := NewMessage(1, fname)

@@ -16,12 +16,12 @@ func TestScan_HttpRequestConstruction(t *testing.T) {
 	tmpDir := t.TempDir()
 	msgPath := filepath.Join(tmpDir, "100.msg")
 	// Важно: HdrPos будет 24 (после \n\n)
-	os.WriteFile(msgPath, []byte("P <s@vsu.ru>\nR <r@vsu.ru>\n\nFrom: s@vsu.ru\n\nBody"), 0644)
+	os.WriteFile(msgPath, []byte("P <s@domain.name>\nR <r@domain.name>\n\nFrom: s@domain.name\n\nBody"), 0644)
 
 	// Проверяем, что заголовки из CGP Message долетели до Rspamd
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// CommuniGate хранит адреса в скобках, проверяем именно этот вариант
-		expectedFrom := "<s@vsu.ru>"
+		expectedFrom := "<s@domain.name>"
 		if r.Header.Get("From") != expectedFrom {
 			t.Errorf("Expected From header %s, got %s", expectedFrom, r.Header.Get("From"))
 		}
@@ -42,7 +42,7 @@ func TestScan_HttpRequestConstruction(t *testing.T) {
 	conf := &config.Config{
 		Host:       ts.URL,
 		AuthservId: "test-mta",
-		NotifyFrom: "postmaster@vsu.ru",
+		NotifyFrom: "postmaster@domain.name",
 	}
 	config.SetGlobal(conf)
 
