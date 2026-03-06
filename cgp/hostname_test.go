@@ -37,9 +37,9 @@ func TestHostname_Logic(t *testing.T) {
 			want bool
 		}{
 			{"domain.name", true},
-			{"mail.domain.name.", true},   // с точкой в конце
-			{"internal-host", false}, // нет точек
-			{"1.2.3.4", false},       // IP не должен быть доменом в этой логике
+			{"mail.domain.name.", true}, // с точкой в конце
+			{"internal-host", false},    // нет точек
+			{"1.2.3.4", false},          // IP не должен быть доменом в этой логике
 		}
 		for _, tt := range tests {
 			if got := IsValidDomain(tt.dom); got != tt.want {
