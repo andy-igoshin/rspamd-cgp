@@ -206,6 +206,7 @@ func NewMessage(seq int, filename string) (*Message, error) {
 	}
 
 	msg.BodyPos = pos
+
 	// Очистка списка получателей от теоретических дублей
 	msg.Rcpts = utils.UniqueSliceElementsNonEmpty(msg.Rcpts)
 
