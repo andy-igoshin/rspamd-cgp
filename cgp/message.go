@@ -29,7 +29,7 @@ type Message struct {
 	BodyPos int64 // Смещение до RFC тела (после заголовков)
 	Size    int64 // Общий размер файла
 
-	seen bool
+	seen        bool
 	extReceived []byte
 }
 
@@ -43,10 +43,10 @@ var (
 )
 
 var (
-	bRecvHdr = []byte("Received: ")
+	bRecvHdr  = []byte("Received: ")
 	bRecvFrom = []byte("Received: from ")
-	bSeenHdr = []byte("X-Rspamd-Seen: ")
-	bSubjHdr = []byte("Subject: ")
+	bSeenHdr  = []byte("X-Rspamd-Seen: ")
+	bSubjHdr  = []byte("Subject: ")
 )
 
 var (
@@ -335,26 +335,26 @@ func getWriter(w io.Writer) *bufio.Writer {
 }
 
 func hashReceived(b []byte) string {
-    h := xxhash.New()
+	h := xxhash.New()
 
-    start := 0
-    for i := 0; i < len(b); i++ {
-        // Нормализация: игнорируем пробелы, табы и переносы строк (folding)
-        if b[i] <= 32 {
-            if i > start {
-                h.Write(b[start:i])
-            }
-            start = i + 1
-        }
-    }
+	start := 0
+	for i := 0; i < len(b); i++ {
+		// Нормализация: игнорируем пробелы, табы и переносы строк (folding)
+		if b[i] <= 32 {
+			if i > start {
+				h.Write(b[start:i])
+			}
+			start = i + 1
+		}
+	}
 
-    // Дописываем остаток, если он есть
-    if start < len(b) {
-        h.Write(b[start:])
-    }
+	// Дописываем остаток, если он есть
+	if start < len(b) {
+		h.Write(b[start:])
+	}
 
-    // Результат — 64-битное число, приводим к hex (16 символов)
-    return strconv.FormatUint(h.Sum64(), 16)
+	// Результат — 64-битное число, приводим к hex (16 символов)
+	return strconv.FormatUint(h.Sum64(), 16)
 }
 
 func isExternal(hdr []byte) bool {

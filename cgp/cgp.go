@@ -12,7 +12,7 @@ import (
 )
 
 type Appender interface {
-    Append([]byte) []byte
+	Append([]byte) []byte
 }
 
 const (

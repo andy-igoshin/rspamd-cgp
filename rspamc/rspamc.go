@@ -16,16 +16,16 @@ import (
 type Duration float64
 
 func (d Duration) Append(dst []byte) []byte {
-    return strconv.AppendFloat(dst, float64(d), 'f', 6, 64)
+	return strconv.AppendFloat(dst, float64(d), 'f', 6, 64)
 }
 
 type RspamdResponse struct {
-	Action        string  `json:"action"`
-	Score         float64 `json:"score"`
-	RequiredScore float64 `json:"required_score"`
+	Action        string   `json:"action"`
+	Score         float64  `json:"score"`
+	RequiredScore float64  `json:"required_score"`
 	TimeReal      Duration `json:"time_real"`
-	Subject       string  `json:"subject,omitempty"`
-	DKIMSignature string  `json:"dkim-signature,omitempty"`
+	Subject       string   `json:"subject,omitempty"`
+	DKIMSignature string   `json:"dkim-signature,omitempty"`
 
 	// Milter может отсутствовать (nil), если нет действий
 	Milter *struct {
