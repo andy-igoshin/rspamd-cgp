@@ -68,6 +68,8 @@ The *Helper* configuration file [rspamd-cgp.yml](rspamd-cgp.yml) is located by d
             Run in debug mode
       -outbound
             Outbound message flow processing
+      -version
+            Print version and exit
 ```
 
 **config**

@@ -69,6 +69,8 @@
             Run in debug mode
       -outbound
             Outbound message flow processing
+      -version
+            Print version and exit
 ```
 
 **config**
