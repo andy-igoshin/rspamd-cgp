@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"strings"
 	"unicode/utf8"
 )
@@ -84,89 +83,12 @@ func getHelo(hdr []byte) string {
 	return ""
 }
 
-func isSeen(m *bufio.Reader) (seen bool, err error) {
-	buf := bufferPool.Get().(*bytes.Buffer)
-	defer putBuffer(buf)
-
-	var found bool
-	var seenSum []byte
-
-	for {
-		err = getHeader(m, buf)
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-			}
-			return
-		}
-
-		hdr := buf.Bytes()
-
-		if len(hdr) == 0 || (len(hdr) == 1 && hdr[0] == '\n') ||
-			(len(hdr) == 2 && hdr[0] == '\r' && hdr[1] == '\n') {
-			break
-		}
-
-		if !found {
-			if bytes.HasPrefix(hdr, bSeenHdr) {
-				val := bytes.TrimSpace(hdr[len(bSeenHdr):])
-				seenSum = make([]byte, len(val))
-				copy(seenSum, val)
-				found = true
-			}
-		} else if bytes.HasPrefix(hdr, bRecvHdr) {
-			if hashReceived(hdr) == string(seenSum) {
-				seen = true
-				break
-			}
-		}
-	}
-	return
-}
-
 func putBuffer(buf *bytes.Buffer) {
 	if buf.Cap() > 4096 {
 		return
 	}
 	buf.Reset()
 	bufferPool.Put(buf)
-}
-
-func replaceSpecChars(msg string) string {
-
-	var sb strings.Builder
-	sb.Grow(len(msg) + 128)
-
-	for _, symbol := range msg {
-
-		switch symbol {
-		case rune('\\'):
-			// replace \ -> \\   (CGP backslash)
-			sb.WriteString("\\\\")
-
-		case 0x0000:
-			fallthrough
-		case rune('\r'):
-			continue
-
-		case rune('\n'):
-			// replace \n -> \\e (CGP End-of-Line)
-			sb.WriteString("\\e")
-
-		case rune('\t'):
-			// replace \t -> \\t (CGP Tab)
-			sb.WriteString("\\t")
-
-		case rune('"'):
-			// replace \" -> \\" (CGP quote)
-			sb.WriteString("\\\"")
-
-		default:
-			sb.WriteRune(symbol)
-		}
-	}
-
-	return sb.String()
 }
 
 func replaceSpecCharsBuf(buf *bytes.Buffer, s string) {

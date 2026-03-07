@@ -139,11 +139,6 @@ func ShowVersion() bool {
 	return configInstance.showVersion
 }
 
-func Symbol(s string) (op *Operation, ok bool) {
-	op, ok = configInstance.Symbols[s]
-	return
-}
-
 func Symbols() map[string]*Operation {
 	return configInstance.Symbols
 }

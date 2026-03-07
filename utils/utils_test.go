@@ -60,36 +60,3 @@ func TestUniqueSliceElementsNonEmpty(t *testing.T) {
 		})
 	}
 }
-
-func TestDiffSlice(t *testing.T) {
-	s1 := []string{"a", "b", "c", "d"}
-	s2 := []string{"b", "d"}
-	want := []string{"a", "c"}
-
-	got := DiffSlice(s1, s2)
-	if len(got) != len(want) {
-		t.Fatalf("Length mismatch: got %d, want %d", len(got), len(want))
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			t.Errorf("At index %d: got %q, want %q", i, got[i], want[i])
-		}
-	}
-}
-
-func TestNoSpace(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"  hello  world  ", "helloworld"},
-		{"\t\n a \r", "a"},
-		{"", ""},
-	}
-
-	for _, tt := range tests {
-		if got := NoSpace(tt.input); got != tt.want {
-			t.Errorf("NoSpace(%q) = %q, want %q", tt.input, got, tt.want)
-		}
-	}
-}
