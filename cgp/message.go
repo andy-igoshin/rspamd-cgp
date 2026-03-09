@@ -115,7 +115,7 @@ func NewMessage(seq int, filename string) (*Message, error) {
 
 	var pos int64
 
-	// 4. Читаем Конверт (Envelope) — симметричный инкремент pos
+	// 4. Читаем Конверт (Envelope)
 	for {
 		line, err := rd.ReadSlice('\n')
 		if err != nil {

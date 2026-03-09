@@ -42,14 +42,14 @@ func NotifyTo(seq int, m *Message, to []string, header string, notifyfrom string
 		w.WriteString("\nDate: ")
 		w.WriteString(date)
 		w.WriteByte('\n')
-		w.WriteString(header) // Наш X-Rspamd-Case
+		w.WriteString(header) // X-Rspamd-Case
 		w.WriteString("\nMIME-Version: 1.0\nContent-Type: multipart/mixed; boundary=\"")
 		w.WriteString(boundary)
 		w.WriteString("\"\n\nThis is a multi-part message in MIME format.\n\n--")
 		w.WriteString(boundary)
 
 		// 2. Текстовое описание кейса
-		w.WriteString("\nContent-Type: text/plain; charset=UTF-8; format=flowed\nContent-Transfer-Encoding: 8bit\n\nmail id:    ")
+		w.WriteString("\nContent-Type: text/plain; charset=UTF-8; format=flowed\nContent-Transfer-Encoding: 8bit\n\nmail id:   ")
 		w.WriteString(mailid)
 		w.WriteString("\nmail from: ")
 		w.WriteString(m.From)
