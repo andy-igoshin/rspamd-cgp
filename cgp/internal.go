@@ -17,7 +17,7 @@ func extractAngle(line []byte) (string, bool) {
 	if e < 0 {
 		return "", false
 	}
-	return string(line[s : s+e+1]), true
+	return string(line[s+1 : s+e]), true
 }
 
 func getHeader(m *bufio.Reader, buf *bytes.Buffer) error {

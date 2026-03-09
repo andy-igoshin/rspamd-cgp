@@ -31,9 +31,9 @@ func NotifyTo(seq int, m *Message, to []string, header string, notifyfrom string
 		// 1. Конверт и заголовки MIME
 		w.WriteString("Return-Path: <>\n")
 		for _, rcpt := range to {
-			w.WriteString("Envelope-To: ")
+			w.WriteString("Envelope-To: <")
 			w.WriteString(rcpt)
-			w.WriteByte('\n')
+			w.WriteString(">\n")
 		}
 		w.WriteString("From: ")
 		w.WriteString(notifyfrom)
