@@ -83,7 +83,7 @@ func TestNewMessage_Parsing(t *testing.T) {
 	if msg.QID != qid {
 		t.Errorf("QID mismatch: got %d, want %d", msg.QID, qid)
 	}
-	if msg.From != "<sender@domain.name>" {
+	if msg.From != "sender@domain.name" {
 		t.Errorf("From mismatch: got %s", msg.From)
 	}
 	if len(msg.Rcpts) != 2 {

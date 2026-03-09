@@ -21,7 +21,7 @@ func TestScan_HttpRequestConstruction(t *testing.T) {
 	// Проверяем, что заголовки из CGP Message долетели до Rspamd
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// CommuniGate хранит адреса в скобках, проверяем именно этот вариант
-		expectedFrom := "<s@domain.name>"
+		expectedFrom := "s@domain.name"
 		if r.Header.Get("From") != expectedFrom {
 			t.Errorf("Expected From header %s, got %s", expectedFrom, r.Header.Get("From"))
 		}

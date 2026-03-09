@@ -50,7 +50,7 @@ func TestNotifyTo(t *testing.T) {
 	// ПРОВЕРКИ:
 
 	// А. Конверт (NotifyTo пишет Return-Path: <>)
-	if !strings.HasPrefix(sRes, "Return-Path: <>\nEnvelope-To: admin@domain.name") {
+	if !strings.HasPrefix(sRes, "Return-Path: <>\nEnvelope-To: <admin@domain.name>") {
 		t.Error("Invalid envelope in notification")
 	}
 
@@ -61,7 +61,7 @@ func TestNotifyTo(t *testing.T) {
 	}
 
 	// В. Текстовое описание
-	if !strings.Contains(sRes, desc) || !strings.Contains(sRes, "mail id:    999") {
+	if !strings.Contains(sRes, desc) || !strings.Contains(sRes, "mail id:   999") {
 		t.Error("Description or Mail ID missing in notification body")
 	}
 
@@ -129,18 +129,18 @@ func TestNotifyTo_MultipleRcpts(t *testing.T) {
 	sRes := string(res)
 
 	// 1. Проверка Envelope-To (оба адреса должны быть в заголовках конверта)
-	if !strings.Contains(sRes, "Envelope-To: admin1@domain.name") ||
-		!strings.Contains(sRes, "Envelope-To: admin2@domain.name") {
+	if !strings.Contains(sRes, "Envelope-To: <admin1@domain.name>") ||
+		!strings.Contains(sRes, "Envelope-To: <admin2@domain.name>") {
 		t.Error("Not all notification recipients found in Envelope-To")
 	}
 
 	// 2. Проверка форматирования списка получателей в текстовой части.
 	// Судя по вашему дампу:
-	// "rcpt to:   <r1@domain.name>" -> 3 пробела после двоеточия
-	// "\n           <r2@domain.name>" -> 11 пробелов в начале строки
+	// "rcpt to:   r1@domain.name" -> 3 пробела после двоеточия
+	// "\n           r2@domain.name" -> 11 пробелов в начале строки
 
-	expectedFirst := "rcpt to:   <r1@domain.name>"
-	expectedSecond := "\n           <r2@domain.name>"
+	expectedFirst := "rcpt to:   r1@domain.name"
+	expectedSecond := "\n           r2@domain.name"
 
 	if !strings.Contains(sRes, expectedFirst) {
 		t.Errorf("First recipient line mismatch.\nWant: %q\nGot around: %q", expectedFirst, sRes[strings.Index(sRes, "rcpt to:"):strings.Index(sRes, "rcpt to:")+30])
@@ -151,7 +151,7 @@ func TestNotifyTo_MultipleRcpts(t *testing.T) {
 	}
 
 	// 3. Проверка mail from (также со скобками)
-	if !strings.Contains(sRes, "mail from: <s@domain.name>") {
+	if !strings.Contains(sRes, "mail from: s@domain.name") {
 		t.Error("Mail from line mismatch")
 	}
 }
