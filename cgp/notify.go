@@ -52,7 +52,11 @@ func NotifyTo(seq int, m *Message, to []string, header string, notifyfrom string
 		w.WriteString("\nContent-Type: text/plain; charset=UTF-8; format=flowed\nContent-Transfer-Encoding: 8bit\n\nmail id:   ")
 		w.WriteString(mailid)
 		w.WriteString("\nmail from: ")
-		w.WriteString(m.From)
+		if len(m.From) > 0 {
+			w.WriteString(m.From)
+		} else {
+			w.WriteString("<>")
+		}
 
 		if len(m.Rcpts) > 0 {
 			w.WriteString("\nrcpt to:   ")
