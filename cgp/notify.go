@@ -57,9 +57,10 @@ func NotifyTo(seq int, m *Message, to []string, header string, notifyfrom string
 		} else {
 			w.WriteString("<>")
 		}
+		w.WriteString("\n")
 
 		if len(m.Rcpts) > 0 {
-			w.WriteString("\nrcpt to:   ")
+			w.WriteString("rcpt to:   ")
 			w.WriteString(m.Rcpts[0])
 			for _, rcpt := range m.Rcpts[1:] {
 				w.WriteString("\n           ")
