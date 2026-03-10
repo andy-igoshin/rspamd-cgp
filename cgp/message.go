@@ -436,7 +436,7 @@ func parseSource(seq int, line []byte, msg *Message) {
 	closeBracket := bytes.LastIndexByte(data, ']')
 
 	if openBracket == -1 || closeBracket == -1 || closeBracket <= openBracket {
-		Putline("* ", seq, " [", msg.QID, "]: Unknown S-line format: ", utils.Bytes2string(line))
+		Putline("* ", seq, " [", msg.QID, "]: unknown S-line format: ", utils.Bytes2string(line))
 		return
 	}
 
@@ -460,7 +460,7 @@ func parseSource(seq int, line []byte, msg *Message) {
 		msg.IP = string(ipBytes)
 		msg.Hostname = getHostname(msg.IP)
 	} else {
-		Putline("* ", seq, " [", msg.QID, "]: Unknown or mismatched module in S-line: ", string(line))
+		Putline("* ", seq, " [", msg.QID, "]: unknown or mismatched module in S-line: ", string(line))
 	}
 }
 

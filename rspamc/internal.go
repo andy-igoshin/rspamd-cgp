@@ -233,7 +233,7 @@ func procActionRS(seq int, msg *cgp.Message, opsum *config.Operation, res *Rspam
 	// FALLBACK: Метки нет — НИКАКИХ MIRRORTO.
 	// Мы только модифицируем текущее письмо (ADDHEADER) и отдаем OK.
 	if seenHdr == "" {
-		cgp.Putline("* ", seq, " [", msg.QID, "]: Warning: RewriteSubject fallback (no Seen tag). MirrorTo suppressed.")
+		cgp.Putline("* ", seq, " [", msg.QID, "]: warning: RewriteSubject fallback (no Seen tag). MirrorTo suppressed.")
 
 		// Добавляем заголовок с предложенной темой к оригиналу
 		headers = append(headers, "X-Spam-Subject: "+res.Subject)
