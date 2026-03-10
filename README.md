@@ -8,7 +8,7 @@ The **rspamd-cgp** *Helper* (external message filter) is designed for spam filte
 
 ### Features
 
-* **High Performance:** Starting with version 3.0.0, the *Helper* utilizes *streaming* data processing. This ensures near-constant memory consumption and a significant reduction in allocations, regardless of the processed message size. This makes the filter stable even when handling exceptionally large attachments.
+* **High Performance:** Starting with version 3.0.0, the *Helper* utilizes *streaming* data processing. This ensures near-constant memory consumption and a significant reduction in allocations, regardless of the processed message size.
 
 * The *Helper* receives messages from *CommuniGate Pro* via the *External Filter Interface* protocol and transmits them to *Rspamd* using the *Rspamd protocol*.
 
