@@ -87,9 +87,9 @@ func TestFilterLocalRcpts_Scenarios(t *testing.T) {
 		input    []string
 		expected int
 	}{
-		{"All Local", []string{"<a@domain.name>", "<b@domain.name>"}, 2},
-		{"Mixed", []string{"<a@domain.name>", "<external@gmail.com>"}, 1},
-		{"None Local", []string{"<hacker@evil.com>"}, 0},
+		{"All Local", []string{"a@domain.name", "b@domain.name"}, 2},
+		{"Mixed", []string{"a@domain.name", "external@gmail.com"}, 1},
+		{"None Local", []string{"hacker@evil.com"}, 0},
 	}
 
 	for _, tt := range tests {
