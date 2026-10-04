@@ -46,6 +46,7 @@ case "$1" in
         ;;
     *)
         echo "Building version $VERSION..."
+        go vet ./...
         go build -ldflags="$LDFLAGS" -o rspamd-cgp
         ;;
 esac
