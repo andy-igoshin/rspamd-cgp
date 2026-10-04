@@ -40,7 +40,7 @@ func filterLocalRcpts(rcpts []string, res *RspamdResponse) []string {
 
 		rcptDomain := rcpt[at+1:]
 		for _, domain := range v.Options {
-			if rcptDomain == domain {
+			if strings.EqualFold(rcptDomain, domain) {
 				filtered = append(filtered, rcpt)
 				break
 			}
