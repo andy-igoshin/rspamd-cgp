@@ -27,6 +27,10 @@ func main() {
 	}
 	config.SetGlobal(conf)
 
+	if config.ConfigDump() || config.ConfigTest() {
+		return
+	}
+
 	if config.ShowVersion() {
 		os.Stderr.WriteString(config.GetVersion())
 		return

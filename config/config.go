@@ -38,6 +38,8 @@ type Config struct {
 	debug       bool
 	outbound    bool
 	showVersion bool
+	configDump  bool
+	configTest  bool
 }
 
 var configInstance *Config
@@ -99,12 +101,14 @@ func New(args []string) (*Config, error) {
 
 	if configdump {
 		dumpConfig(c)
-		os.Exit(0)
+		c.configDump = true
+		return c, nil
 	}
 
 	if configtest {
 		fmt.Println("config: Syntax OK")
-		os.Exit(0)
+		c.configTest = true
+		return c, nil
 	}
 
 	if c.AuthservId == "" {
@@ -116,6 +120,14 @@ func New(args []string) (*Config, error) {
 	c.Host = "http://" + c.Host + "/checkv2"
 
 	return c, nil
+}
+
+func ConfigDump() bool {
+	return configInstance.configDump
+}
+
+func ConfigTest() bool {
+	return configInstance.configTest
 }
 
 func NotifyFrom() string {

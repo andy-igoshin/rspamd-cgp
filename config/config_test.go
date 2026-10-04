@@ -8,6 +8,34 @@ import (
 	"time"
 )
 
+func TestConfig_DumpModes(t *testing.T) {
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "config.yml")
+	os.WriteFile(configFile, []byte("notifyfrom: \"a@b.c\"\n"), 0644)
+
+	t.Run("configdump sets ConfigDump flag", func(t *testing.T) {
+		cfg, err := New([]string{"-config", configFile, "-configdump"})
+		if err != nil {
+			t.Fatalf("New() failed: %v", err)
+		}
+		SetGlobal(cfg)
+		if !ConfigDump() {
+			t.Error("expected ConfigDump() == true")
+		}
+	})
+
+	t.Run("configtest sets ConfigTest flag", func(t *testing.T) {
+		cfg, err := New([]string{"-config", configFile, "-configtest"})
+		if err != nil {
+			t.Fatalf("New() failed: %v", err)
+		}
+		SetGlobal(cfg)
+		if !ConfigTest() {
+			t.Error("expected ConfigTest() == true")
+		}
+	})
+}
+
 func TestConfig_New(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "config.yml")
