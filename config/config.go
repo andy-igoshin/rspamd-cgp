@@ -93,23 +93,18 @@ func New(args []string) (*Config, error) {
 		return nil, err
 	}
 
+	if err = validateConfig(c); err != nil {
+		return nil, err
+	}
+
 	if configdump {
 		dumpConfig(c)
-		if err = validateConfig(c); err != nil {
-			fmt.Println("config:", err)
-			os.Exit(1)
-		}
 		os.Exit(0)
 	}
 
 	if configtest {
-		if err = validateConfig(c); err != nil {
-			fmt.Println("config:", err)
-			os.Exit(1)
-		} else {
-			fmt.Println("config: Syntax OK")
-			os.Exit(0)
-		}
+		fmt.Println("config: Syntax OK")
+		os.Exit(0)
 	}
 
 	if c.AuthservId == "" {
