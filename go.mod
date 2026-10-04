@@ -1,6 +1,6 @@
 module git.vsu.ru/ai/rspamd-cgp
 
-go 1.25
+go 1.27.1
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0
