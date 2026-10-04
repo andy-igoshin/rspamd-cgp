@@ -88,11 +88,14 @@ func makeHeadersOutbound(res *RspamdResponse) (headers []string) {
 func makeOpSum(res *RspamdResponse, action string) (*config.Operation, string, string, string) {
 	var casea []string
 	var desca []string
-	opsum := new(config.Operation)
+	var opsum *config.Operation
 
 	// Обработка Action
 	if op, ok := config.Action(action); ok {
 		if isOpAccept(op.Direction, config.Outbound()) {
+			if opsum == nil {
+				opsum = new(config.Operation)
+			}
 			opsum.Discard = op.Discard
 			opsum.MirrorTo = op.MirrorTo
 			opsum.NotifyRcpts = op.NotifyRcpts
@@ -116,6 +119,9 @@ func makeOpSum(res *RspamdResponse, action string) (*config.Operation, string, s
 		for symbol, op := range config.Symbols() {
 			if isOpAccept(op.Direction, config.Outbound()) {
 				if v, ok := res.Symbols[symbol]; ok && v != nil {
+					if opsum == nil {
+						opsum = new(config.Operation)
+					}
 					opsum.Discard = opsum.Discard || op.Discard
 					opsum.MirrorTo = append(opsum.MirrorTo, op.MirrorTo...)
 					opsum.NotifyRcpts = opsum.NotifyRcpts || op.NotifyRcpts
