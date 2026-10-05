@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -376,7 +377,17 @@ func isExternal(hdr []byte) bool {
 	}
 
 	// 3. Быстрый чек на IP в скобках [IP] (SMTP/Web)
+	// loopback-адреса ([127.0.0.1], [::1]) — внутренние источники.
 	if fromVal[0] == '[' {
+		closeBracket := bytes.IndexByte(fromVal, ']')
+		if closeBracket > 1 {
+			ipStr := utils.Bytes2string(fromVal[1:closeBracket])
+			if addr, err := netip.ParseAddr(ipStr); err == nil {
+				if addr.IsLoopback() || addr.IsUnspecified() {
+					return false
+				}
+			}
+		}
 		return true
 	}
 
@@ -387,7 +398,12 @@ func isExternal(hdr []byte) bool {
 	}
 	firstWord := fromVal[:firstSpace]
 
-	// 5. Проверка на Email (GROUP/RULE).
+	// 5. localhost — всегда внутренний источник.
+	if len(firstWord) > 0 && bytes.EqualFold(firstWord, []byte("localhost")) {
+		return false
+	}
+
+	// 6. Проверка на Email (GROUP/RULE).
 	// Если во входном идентификаторе нет '@', это сетевой хост.
 	return len(firstWord) > 0 && !bytes.Contains(firstWord, []byte("@"))
 }
