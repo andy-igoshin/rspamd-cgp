@@ -23,7 +23,7 @@ func dumpConfig(c *Config) {
 
 func validateConfig(c *Config) (err error) {
 
-	reMail = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
+	reMail = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]{2,}$`)
 
 	if err = validateConfigOp(c.NotifyFrom); err != nil {
 		return
