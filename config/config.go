@@ -45,15 +45,24 @@ type Config struct {
 var configInstance *Config
 
 func Action(a string) (op *Operation, ok bool) {
+	if configInstance == nil {
+		return
+	}
 	op, ok = configInstance.Actions[a]
 	return
 }
 
 func AuthservId() string {
+	if configInstance == nil {
+		return ""
+	}
 	return configInstance.AuthservId
 }
 
 func Debug() bool {
+	if configInstance == nil {
+		return false
+	}
 	return configInstance.debug
 }
 
@@ -63,6 +72,9 @@ func GetVersion() string {
 }
 
 func Host() string {
+	if configInstance == nil {
+		return ""
+	}
 	return configInstance.Host
 }
 
@@ -123,18 +135,30 @@ func New(args []string) (*Config, error) {
 }
 
 func ConfigDump() bool {
+	if configInstance == nil {
+		return false
+	}
 	return configInstance.configDump
 }
 
 func ConfigTest() bool {
+	if configInstance == nil {
+		return false
+	}
 	return configInstance.configTest
 }
 
 func NotifyFrom() string {
+	if configInstance == nil {
+		return ""
+	}
 	return configInstance.NotifyFrom
 }
 
 func Outbound() bool {
+	if configInstance == nil {
+		return false
+	}
 	return configInstance.outbound
 }
 
@@ -143,13 +167,22 @@ func SetGlobal(c *Config) {
 }
 
 func ShowVersion() bool {
+	if configInstance == nil {
+		return false
+	}
 	return configInstance.showVersion
 }
 
 func Symbols() map[string]*Operation {
+	if configInstance == nil {
+		return nil
+	}
 	return configInstance.Symbols
 }
 
 func Timeout() time.Duration {
+	if configInstance == nil {
+		return 0
+	}
 	return configInstance.Timeout
 }
