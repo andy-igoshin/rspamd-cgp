@@ -89,7 +89,7 @@ func TestIntegration_FullMatrix(t *testing.T) {
 
 			// Пишем конфиг
 			confPath := filepath.Join(tmpDir, "config.yml")
-			os.WriteFile(confPath, []byte(fmt.Sprintf(tc.configYaml, strings.TrimPrefix(ts.URL, "http://"))), 0644)
+			os.WriteFile(confPath, fmt.Appendf(nil, tc.configYaml, strings.TrimPrefix(ts.URL, "http://")), 0644)
 
 			// Создаем письмо
 			qid := "999"
@@ -129,6 +129,9 @@ func TestIntegration_FullMatrix(t *testing.T) {
 						return
 					}
 				}
+				if err := scanner.Err(); err != nil {
+					resChan <- fmt.Sprintf("scanner error: %v", err)
+				}
 			}()
 
 			// Команды протокола
@@ -162,7 +165,7 @@ func TestIntegration_FullMatrix(t *testing.T) {
 	}
 }
 
-func createCgpCompliantFile(t *testing.T, qid int) string {
+func createCgpCompliantFile(_ testing.TB, qid int) string {
 	path := filepath.Join(os.TempDir(), fmt.Sprintf("%d.msg", qid))
 
 	var buf bytes.Buffer
@@ -196,8 +199,10 @@ func BenchmarkRspamc_Scan_RealWork(b *testing.B) {
 
 	// Глушим syscall.Write
 	null, _ := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	defer null.Close()
 	oldStdout, _ := syscall.Dup(1)
 	syscall.Dup2(int(null.Fd()), 1)
+	defer syscall.Dup2(oldStdout, 1)
 
 	oldArgs := os.Args
 	os.Args = []string{"rspamd-cgp"}
@@ -213,9 +218,8 @@ func BenchmarkRspamc_Scan_RealWork(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
-		rspamc.Scan(i, tmpMsg)
+	for b.Loop() {
+		rspamc.Scan(0, tmpMsg)
 	}
 
-	syscall.Dup2(oldStdout, 1)
 }
