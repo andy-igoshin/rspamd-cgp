@@ -8,9 +8,13 @@ import (
 	"time"
 
 	"github.com/maypok86/otter"
+	"golang.org/x/sync/singleflight"
 )
 
-var dnsResolver = &net.Resolver{PreferGo: true}
+var (
+	dnsResolver = &net.Resolver{PreferGo: true}
+	sfGroup     singleflight.Group
+)
 
 func filterNames(names []string) []string {
 
@@ -79,17 +83,29 @@ var getHostname = func() func(addr string) (hostname string) {
 			return
 		}
 
-		hostname, ok := cache.Get(ipAddr)
-		if !ok {
-			hostname = lookupAddr(ipAddr)
-			if len(hostname) > 0 {
-				cache.Set(ipAddr, hostname, time.Hour)
-			} else {
-				cache.Set(ipAddr, hostname, 5*time.Minute)
-			}
+		// Fast path: read from in-memory cache
+		if h, ok := cache.Get(ipAddr); ok {
+			return h
 		}
 
-		return
+		// Slow path: singleflight prevents duplicate DNS lookups
+		// when multiple goroutines resolve the same IP simultaneously.
+		res, _, _ := sfGroup.Do(addr, func() (any, error) {
+			// Double-check: another goroutine may have filled the cache
+			if h, ok := cache.Get(ipAddr); ok {
+				return h, nil
+			}
+
+			h := lookupAddr(ipAddr)
+			if len(h) > 0 {
+				cache.Set(ipAddr, h, time.Hour)
+			} else {
+				cache.Set(ipAddr, h, 5*time.Minute)
+			}
+			return h, nil
+		})
+
+		return res.(string)
 	}
 }()
 
