@@ -9,8 +9,7 @@ func TestHostname_Logic(t *testing.T) {
 		input := []string{"host", "mail.domain.name", "localhost", "deep.sub.domain.com"}
 		// Должны остаться только те, что проходят IsValidDomain (с точками)
 		got := filterNames(input)
-		if len(got) != 3 { // mail.domain.name, localhost (если rx пропустит), deep...
-			// Зависит от вашего regex. IsValidDomain требует хотя бы одну точку.
+		if len(got) != 3 {
 			t.Logf("Filtered names: %v", got)
 		}
 	})
