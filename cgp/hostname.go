@@ -10,6 +10,8 @@ import (
 	"github.com/maypok86/otter"
 )
 
+var dnsResolver = &net.Resolver{PreferGo: true}
+
 func filterNames(names []string) []string {
 
 	fqdn := make([]string, 0, len(names))
@@ -140,12 +142,10 @@ func IsValidDomain(domain string) bool {
 
 func lookupAddr(ipAddr netip.Addr) (hostname string) {
 
-	r := &net.Resolver{PreferGo: true}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	names, err := r.LookupAddr(ctx, ipAddr.String())
+	names, err := dnsResolver.LookupAddr(ctx, ipAddr.String())
 	if err != nil {
 		return
 	}
@@ -160,7 +160,7 @@ func lookupAddr(ipAddr netip.Addr) (hostname string) {
 
 	for _, name := range names {
 		go func(name string) {
-			ips, err := r.LookupHost(ctx, name)
+			ips, err := dnsResolver.LookupHost(ctx, name)
 			if err != nil {
 				ch <- result{}
 				return
