@@ -114,6 +114,11 @@ func InitStdoutFd() error {
 }
 
 func Intf(seq int, ver string) {
+	verNum, _ := strconv.Atoi(ver)
+	if verNum < protocol {
+		Putline("* INTF: CGP protocol ", verNum, " is older than supported ", protocol)
+	}
+
 	var buf [64]byte
 	b := strconv.AppendInt(buf[:0], int64(seq), 10)
 	b = append(b, " INTF "...)
