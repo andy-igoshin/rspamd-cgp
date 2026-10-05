@@ -93,9 +93,7 @@ func makeOpSum(res *RspamdResponse, action string) (*config.Operation, string, s
 	// Обработка Action
 	if op, ok := config.Action(action); ok {
 		if isOpAccept(op.Direction, config.Outbound()) {
-			if opsum == nil {
-				opsum = new(config.Operation)
-			}
+			opsum = new(config.Operation)
 			opsum.Discard = op.Discard
 			opsum.MirrorTo = op.MirrorTo
 			opsum.NotifyRcpts = op.NotifyRcpts
