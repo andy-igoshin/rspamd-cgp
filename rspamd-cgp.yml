@@ -37,7 +37,7 @@ actions:
     discard: true
     notifyrcpts: false
     notifyto: []
-    mirrorto: [a@b.r, c@d.r]
+    mirrorto: [a@b.ru, c@d.ru]
 
 ################################################################################
 # Секция описывает символы (SYMBOLs) и дополнительную обработку для каждого
