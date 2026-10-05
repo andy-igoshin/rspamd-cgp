@@ -11,7 +11,7 @@ import (
 func TestConfig_DumpModes(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "config.yml")
-	os.WriteFile(configFile, []byte("notifyfrom: \"a@b.c\"\n"), 0644)
+	os.WriteFile(configFile, []byte("notifyfrom: \"a@b.co\"\n"), 0644)
 
 	t.Run("configdump sets ConfigDump flag", func(t *testing.T) {
 		cfg, err := New([]string{"-config", configFile, "-configdump"})
